@@ -17,6 +17,12 @@ test: | vendor
 	@echo Testing...
 	@go test ./... -cover
 
+coverage: | vendor
+	# For each package with test files, run with full coverage (including other packages)
+	@go list -f '{{if gt (len .TestGoFiles) 0}}"go test -covermode count -coverprofile {{.Name}}.coverprofile -coverpkg ./... {{.ImportPath}}"{{end}}' ./... | xargs -I {} bash -c {}
+	# Merge the generated cover profiles into a single file
+	@gocovmerge `ls *.coverprofile` > coverage.out
+
 lint: | vendor
 	@echo Linting...
 	@gometalinter --enable=gofmt --vendor -D gotype
