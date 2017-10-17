@@ -1,0 +1,11 @@
+#!/bin/bash
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+GIT_DIR=$(cd "$SCRIPT_DIR"; cd ../.git; pwd)
+PRE_COMMIT="$GIT_DIR/hooks/pre-commit"
+
+echo "updating pre-commit hook...";
+tee "$PRE_COMMIT" << EOF
+exec git-hooks/pre-commit
+EOF
+chmod +x "$PRE_COMMIT"
