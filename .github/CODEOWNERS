@@ -1,0 +1,10 @@
+# CODEOWNERS: https://help.github.com/articles/about-codeowners/
+
+# These owners will be the default owners for everything in the repo.
+*       @nicolerenee @lvaughn
+
+# These owners are responsible for ADRs
+docs/adr/*  @nicolerenee @lvaughn @wpdrush21
+
+# The owners are responsible for documentation files
+*.md   @nicolerenee @wpdrush21
