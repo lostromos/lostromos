@@ -42,9 +42,9 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search config in home directory with name ".lostromos" (without extension).
+		// Use default config file /etc/lostromos.yaml
 		viper.AddConfigPath("/etc")
-		viper.SetConfigName("lostromos")
+		viper.SetConfigName("lostromos.yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
