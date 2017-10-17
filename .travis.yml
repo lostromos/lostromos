@@ -1,0 +1,23 @@
+language: go
+
+go:
+  - 1.9.x
+  - master
+
+matrix:
+  allow_failures:
+  - master
+
+before_install:
+  - go get -u github.com/golang/dep/cmd/dep
+  - go get -u github.com/alecthomas/gometalinter
+  - gometalinter --install
+
+install:
+  - dep ensure
+
+script:
+  - make
+
+after_script:
+  - ./lostromos version

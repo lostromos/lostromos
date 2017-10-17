@@ -12,3 +12,6 @@
 
 # Ignore dep vendor directory
 vendor
+
+# Ignore build
+lostromos
