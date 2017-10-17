@@ -9,6 +9,7 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.coverprofile
 
 # Ignore dep vendor directory
 vendor

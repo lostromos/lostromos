@@ -1,6 +1,7 @@
 # Lostrómos
 
 [![Build Status](https://travis-ci.com/wpengine/lostromos.svg?token=g3V53vjjsGvCPxX5Pf9y&branch=master)](https://travis-ci.com/wpengine/lostromos)
+[![Coverage Status](https://coveralls.io/repos/github/wpengine/lostromos/badge.svg?branch=master&t=1yNdcs)](https://coveralls.io/github/wpengine/lostromos?branch=master)
 
 Lostromos is a service that creates Kubernetes resources based on a Custom Resource
 endpoint in the Kubernetes API. It is an implementation of the [Operator

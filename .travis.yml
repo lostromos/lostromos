@@ -11,6 +11,9 @@ matrix:
 before_install:
   - go get -u github.com/golang/dep/cmd/dep
   - go get -u github.com/alecthomas/gometalinter
+  - go get -u github.com/wadey/gocovmerge
+  - go get -u golang.org/x/tools/cmd/cover
+  - go get -u github.com/mattn/goveralls
   - gometalinter --install
 
 install:
@@ -18,6 +21,8 @@ install:
 
 script:
   - make
+  - make coverage
+  - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-pro -repotoken $COVERALLS_TOKEN
 
 after_script:
   - ./lostromos version
