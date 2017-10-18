@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -eu
+
+SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
+
+main()
+{
+    cd $SCRIPT_DIR/..
+    make lint || die "Linting Failed!"
+    echo PASSED
+}
+
+die()
+{
+    echo "ERROR. ABORTING COMMIT: $*"
+    echo "YOU CAN BYPASS THIS WITH --no-verify"
+    exit 1
+}
+
+main "$@"

@@ -18,3 +18,8 @@ details are:
 
 Its configuration could also include shared values to use in the templating (eg.
 docker image in deployments, a common annotation or label).
+
+## Getting Started
+
+- [Continuous Integration](./docs/travisCI.md)
+- [Development](./docs/development.md)

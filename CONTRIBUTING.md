@@ -1,12 +1,12 @@
-## Contribution Guidelines
+# Contribution Guidelines
 
-### Security issues
+## Security issues
 
 If you are reporting a security issue, do not create an issue or file a pull
 request on GitHub. Instead, disclose the issue responsibly by sending an email
 to security@wpengine.com.
 
-### Pull requests are always welcome
+## Pull requests are always welcome
 
 We are always thrilled to receive pull requests, and do our best to
 process them as fast as possible. Not sure if that typo is worth a pull
@@ -21,8 +21,7 @@ to do everything for everybody. This means that we might decide against
 incorporating a new feature. However, there might be a way to implement
 that feature *on top of* Lostrómos.
 
-
-### Conventions
+## Conventions
 
 Fork the repo and make changes on your fork in a feature branch:
 
@@ -67,7 +66,7 @@ same commit so that a revert would remove all traces of the feature or fix.
 Commits that fix or close an issue should include a reference like `Closes #XXX`
 or `Fixes #XXX`, which will automatically close the issue when merged.
 
-### Sign your work
+## Sign your work
 
 The sign-off is a simple line at the end of the explanation for the
 patch, which certifies that you wrote it or otherwise have the right to
@@ -75,7 +74,7 @@ pass it on as an open-source patch.  The rules are pretty simple: if you
 can certify the below (from
 [developercertificate.org](http://developercertificate.org/)):
 
-```
+```text
 Developer Certificate of Origin
 Version 1.1
 

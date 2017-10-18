@@ -1,5 +1,8 @@
 language: go
 
+services:
+  - docker
+
 go:
   - 1.9.x
   - master
@@ -9,9 +12,8 @@ matrix:
   - master
 
 before_install:
-  - go get -u github.com/golang/dep/cmd/dep
-  - go get -u github.com/alecthomas/gometalinter
-  - gometalinter --install
+  - make install-deps
+  - make pull-linters
 
 install:
   - dep ensure

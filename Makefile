@@ -7,6 +7,8 @@ GIT_HASH      := $(shell git rev-parse --short HEAD)
 BUILD_TIME    := $(shell date -u '+%Y-%m-%d_%I:%M:%S%p')
 LD_FLAGS      := -s -w -X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.GitHash=$(GIT_HASH) -X $(PKG)/version.BuildTime=$(BUILD_TIME)
 
+MARKDOWN_LINTER := wpengine/mdl
+
 all: lint test build
 
 build:
@@ -17,13 +19,26 @@ test: | vendor
 	@echo Testing...
 	@go test ./... -cover
 
-lint: | vendor
+lint: golint lint-markdown
+
+golint: | vendor
 	@echo Linting...
 	@gometalinter --enable=gofmt --vendor -D gotype
+
+lint-markdown:
+	@find . -path ./vendor -prune -o -name "*.md" -exec docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} \;
+
+install-deps:
+	go get -u github.com/golang/dep/cmd/dep
+	go get -u github.com/alecthomas/gometalinter
+	gometalinter --install
 
 vendor:
 	@echo Vendoring...
 	@dep ensure
+
+pull-linters:
+	docker pull ${MARKDOWN_LINTER}
 
 clean:
 	@echo Cleaning...
