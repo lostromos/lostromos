@@ -7,4 +7,4 @@ branch before deploying a new image.
 ## How to run Travis
 
 Travis uses a yml system of running tasks. Check out the [.travis.yml](../.travis.yml) file to see more detailed
-information about what operations we run. The travis job is hosted [here](https://travis-ci.com/wpengine/lostromos).
+information about what operations we run. The travis job is hosted [here](https://travis-ci.org/wpengine/lostromos).
