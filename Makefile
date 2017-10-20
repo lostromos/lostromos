@@ -41,7 +41,7 @@ lint: golint lint-markdown
 
 golint: | vendor
 	@echo Linting...
-	@gometalinter --enable=gofmt --vendor -D gotype
+	@gometalinter --vendor --deadline=90s --enable=gofmt --disable=gotype ./...
 
 lint-markdown:
 	@find . -path ./vendor -prune -o -name "*.md" -exec bash -c 'docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} || kill $$PPID' \;
