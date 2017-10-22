@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/wpengine/lostromos.svg?branch=master)](https://travis-ci.org/wpengine/lostromos)
 [![codecov](https://codecov.io/gh/wpengine/lostromos/branch/master/graph/badge.svg)](https://codecov.io/gh/wpengine/lostromos)
 
-**Under active development. Not ready for production usage.**
+**NOTE**: Under active development. Not ready for production usage.
 
 Lostromos is a service that creates Kubernetes resources based on a Custom Resource
 endpoint in the Kubernetes API. It is an implementation of the [Operator
@@ -24,5 +24,13 @@ docker image in deployments, a common annotation or label).
 
 ## Getting Started
 
-- [Continuous Integration](./docs/travisCI.md)
 - [Development](./docs/development.md)
+- [Continuous Integration](./docs/continuousIntegration.md)
+
+## Contributing
+
+See [Contributing](./CONTRIBUTING.md) to get started.
+
+## Report a Bug
+
+To report an issue or suggest an improvement please open an [issue](https://github.com/wpengine/lostromos/issues).
