@@ -44,7 +44,7 @@ golint: | vendor
 	@gometalinter --enable=gofmt --vendor -D gotype
 
 lint-markdown:
-	@find . -path ./vendor -prune -o -name "*.md" -exec docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} \;
+	@find . -path ./vendor -prune -o -name "*.md" -exec bash -c 'docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} || kill $$PPID' \;
 
 install-deps:
 	go get -u github.com/golang/dep/cmd/dep
