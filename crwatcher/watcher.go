@@ -135,7 +135,7 @@ func (cw *CRWatcher) setupController() {
 // events will be passed back to the ResourceController
 func (cw *CRWatcher) Watch(stopCh <-chan struct{}) error {
 	if cw.controller == nil {
-		return errors.New("the CRWatcher has not been initalized")
+		return errors.New("the CRWatcher has not been initialized")
 	}
 	cw.controller.Run(stopCh)
 	return nil
