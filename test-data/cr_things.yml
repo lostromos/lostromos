@@ -1,0 +1,21 @@
+---
+
+apiVersion: stable.nicolerenee.io/v1
+kind: Character
+metadata:
+  name: thing1
+spec:
+  Name: Thing 1
+  From: Cat in the Hat
+  By: Dr. Suess
+
+---
+
+apiVersion: stable.nicolerenee.io/v1
+kind: Character
+metadata:
+  name: thing2
+spec:
+  Name: Thing 2
+  From: Cat in the Hat
+  By: Dr. Suess

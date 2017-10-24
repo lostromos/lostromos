@@ -1,0 +1,10 @@
+---
+
+apiVersion: stable.nicolerenee.io/v1
+kind: Character
+metadata:
+  name: nemo
+spec:
+  Name: Nemo
+  From: Finding Nemo
+  By: Disney
