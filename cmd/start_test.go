@@ -24,16 +24,11 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
-func TestGetKubeClientForK8sPanicsWhenNotInCluster(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-
-	viper.Set("k8s.in-cluster", true)
+func TestGetKubeClientDefaultsToConfigFileWhenNotInCluster(t *testing.T) {
+	viper.Set("k8s.config", path.Join("..", "test-data", "kubeconfig"))
 	cfg := getKubeClient()
-	assert.Nil(t, cfg)
+	assert.NotNil(t, cfg)
+	assert.Equal(t, "https://localhost:8443", cfg.Host)
 }
 
 func TestGetKubeClientForKubeConfigFailsWhenFileNotFound(t *testing.T) {
@@ -43,14 +38,12 @@ func TestGetKubeClientForKubeConfigFailsWhenFileNotFound(t *testing.T) {
 		}
 	}()
 
-	viper.Set("k8s.in-cluster", false)
 	viper.Set("k8s.config", "/i-dont-exist/kubeconf")
 	cfg := getKubeClient()
 	assert.Nil(t, cfg)
 }
 
 func TestGetKubeClientForKubeConfigReturnsWhenFileExists(t *testing.T) {
-	viper.Set("k8s.in-cluster", false)
 	viper.Set("k8s.config", path.Join("..", "test-data", "kubeconfig"))
 	cfg := getKubeClient()
 	assert.NotNil(t, cfg)

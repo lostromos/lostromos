@@ -1,0 +1,17 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .GetField "metadata" "name"  }}-nginx
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .GetField "metadata" "name"  }}
+        component: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
