@@ -43,10 +43,7 @@ func (k Kubectl) Apply(file string) (string, error) {
 		}
 	}
 	out, err := execCommand("kubectl", "apply", "-f", file).CombinedOutput()
-	if err != nil {
-		return "", err
-	}
-	return string(out[:]), nil
+	return string(out[:]), err
 }
 
 // Delete will execute kubectl delete -f file with the correct config
@@ -58,8 +55,5 @@ func (k Kubectl) Delete(file string) (string, error) {
 		}
 	}
 	out, err := execCommand("kubectl", "delete", "-f", file).CombinedOutput()
-	if err != nil {
-		return "", err
-	}
-	return string(out[:]), nil
+	return string(out[:]), err
 }
