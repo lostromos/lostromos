@@ -6,7 +6,7 @@ working as expected you can go through the following steps.
 1. Setup kubectl against a cluster (minikube works just fine)
 2. `kubectl apply -f test-data/crd.yml`
 3. `kubectl apply -f test-data/cr_things.yml`
-4. `go run main.go start --crd-group stable.nicolerenee.io --crd-name characters`
+4. `go run main.go start --config test-data/config.yaml`
     - See that it prints out that `thing1` and `thing2` were added
 5. In another shell `kubectl apply -f test-data/cr_nemo.yml`
     - See that it prints out that `nemo` was added

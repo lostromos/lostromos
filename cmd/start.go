@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wpengine/lostromos/crwatcher"
-	"github.com/wpengine/lostromos/printctlr"
+	"github.com/wpengine/lostromos/tmplctlr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
@@ -38,21 +38,19 @@ var startCmd = &cobra.Command{
 
 func init() {
 	LostromosCmd.AddCommand(startCmd)
-	startCmd.Flags().String("kube-master", "", "address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	startCmd.Flags().String("kube-config", filepath.Join(homeDir(), ".kube", "config"), "absolute path to the kubeconfig file. Only required if out-of-cluster.")
-	startCmd.Flags().Bool("k8s", false, "When set uses the K8s service account token. Use when running in a cluter. This takes precedence over the kube-master and kube-config settings.")
+	startCmd.Flags().String("kube-config", filepath.Join(homeDir(), ".kube", "config"), "absolute path to the kubeconfig file. Only required if running outside-of-cluster.")
 	startCmd.Flags().String("crd-name", "", "the plural name of the CRD you want monitored (ex: users)")
 	startCmd.Flags().String("crd-group", "", "the group of the CRD you want monitored (ex: stable.wpengine.io)")
 	startCmd.Flags().String("crd-version", "v1", "the version of the CRD you want monitored")
 	startCmd.Flags().String("crd-namespace", metav1.NamespaceNone, "(optional) the namespace of the CRD you want monitored, only needed for namespaced CRDs (ex: default)")
+	startCmd.Flags().String("templates", "", "absolute path to the directory with your template files")
 
-	viperBindFlag("k8s.master", startCmd.Flags().Lookup("kube-master"))
 	viperBindFlag("k8s.config", startCmd.Flags().Lookup("kube-config"))
-	viperBindFlag("k8s.in-cluster", startCmd.Flags().Lookup("k8s"))
 	viperBindFlag("crd.name", startCmd.Flags().Lookup("crd-name"))
 	viperBindFlag("crd.group", startCmd.Flags().Lookup("crd-group"))
 	viperBindFlag("crd.version", startCmd.Flags().Lookup("crd-version"))
 	viperBindFlag("crd.namespace", startCmd.Flags().Lookup("crd-namespace"))
+	viperBindFlag("templates", startCmd.Flags().Lookup("templates"))
 }
 
 func homeDir() string {
@@ -68,13 +66,16 @@ func getKubeClient() *restclient.Config {
 		cfg *restclient.Config
 		err error
 	)
-	if viper.GetBool("k8s.in-cluster") {
-		cfg, err = restclient.InClusterConfig()
-	} else {
-		cfg, err = clientcmd.BuildConfigFromFlags(viper.GetString("k8s.master"), viper.GetString("k8s.config"))
+
+	cfg, err = restclient.InClusterConfig()
+	if err == nil {
+		viper.Set("k8s.config", "")
+		return cfg
 	}
+
+	cfg, err = clientcmd.BuildConfigFromFlags("", viper.GetString("k8s.config"))
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	return cfg
 }
@@ -87,7 +88,9 @@ func buildCRWatcher(cfg *restclient.Config) *crwatcher.CRWatcher {
 		Namespace:  viper.GetString("crd.namespace"),
 	}
 
-	crw, err := crwatcher.NewCRWatcher(cwCfg, cfg, printctlr.Controller{})
+	ctlr := tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"))
+
+	crw, err := crwatcher.NewCRWatcher(cwCfg, cfg, ctlr)
 	if err != nil {
 		panic(err.Error())
 	}
