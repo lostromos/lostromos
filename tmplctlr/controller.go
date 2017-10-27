@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/wpengine/lostromos/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -46,6 +47,8 @@ func NewController(tmplDir string, kubeCfg string) *Controller {
 func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	fmt.Printf("INFO: resource added, cr: %s\n", r.GetName())
 	c.apply(r)
+	metrics.CreatedReleases.Inc()
+	metrics.ManagedReleases.Inc()
 }
 
 // ResourceUpdated is called when a custom resource is updated or during a
@@ -53,6 +56,7 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	fmt.Printf("INFO: resource updated, cr: %s\n", newR.GetName())
 	c.apply(newR)
+	metrics.UpdatedReleases.Inc()
 }
 
 func (c Controller) apply(r *unstructured.Unstructured) {
@@ -92,6 +96,8 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 		return
 	}
 	fmt.Printf("DEBUG: deleted Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
+	metrics.DeletedReleases.Inc()
+	metrics.ManagedReleases.Dec()
 }
 
 func (c Controller) generateTemplate(cr *CustomResource) (string, error) {
