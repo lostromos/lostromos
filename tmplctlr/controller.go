@@ -66,7 +66,8 @@ func (c Controller) apply(r *unstructured.Unstructured) {
 	}
 	out, err := c.Client.Apply(tmpFile)
 	if err != nil {
-		fmt.Printf("ERROR: failed to apply template error: %s\n", err)
+		fmt.Printf("ERROR: failed to apply template error: %s - [ %s ]\n", err, out)
+		fmt.Printf("DEBUG: template to apply: \n%s", readFile(tmpFile))
 		return
 	}
 	fmt.Printf("DEBUG: applied Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
@@ -86,7 +87,8 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	}
 	out, err := c.Client.Delete(tmpFile)
 	if err != nil {
-		fmt.Printf("ERROR: failed to delete template error: %s\n", err)
+		fmt.Printf("ERROR: failed to delete template error: %s - [ %s ]\n", err, out)
+		fmt.Printf("DEBUG: template to delete: \n%s", readFile(tmpFile))
 		return
 	}
 	fmt.Printf("DEBUG: deleted Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
@@ -114,4 +116,12 @@ func close(c io.Closer) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func readFile(filepath string) string {
+	content, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		panic(err)
+	}
+	return string(content[:])
 }

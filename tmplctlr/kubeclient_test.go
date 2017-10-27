@@ -70,7 +70,7 @@ func TestKubectlApplyCmdError(t *testing.T) {
 	k := &Kubectl{}
 	out, err := k.Apply("ERROR")
 	assert.NotNil(t, err)
-	assert.Empty(t, out)
+	assert.Equal(t, "[kubectl apply -f ERROR]", out)
 }
 
 func TestKubectlApplyConfigFile(t *testing.T) {
@@ -112,5 +112,5 @@ func TestKubectlDeleteCmdError(t *testing.T) {
 	k := &Kubectl{}
 	out, err := k.Delete("ERROR")
 	assert.NotNil(t, err)
-	assert.Empty(t, out)
+	assert.Equal(t, "[kubectl delete -f ERROR]", out)
 }

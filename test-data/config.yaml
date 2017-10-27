@@ -1,4 +1,4 @@
 crd:
   group: stable.nicolerenee.io
   name: characters
-templates: ./test-data/templates
+templates: test-data/templates

@@ -33,6 +33,10 @@ test: | vendor
 	@echo Testing...
 	@go test ./... -cover
 
+integration-tests:
+	@echo Running integration tests...
+	@test-scripts/integration-tests.sh
+
 coverage: | vendor
 	@echo Generating coverage report...
 	@./test-scripts/coverage.sh
@@ -51,8 +55,6 @@ install-deps:
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install
 
-travis: lint test build coverage
-
 vendor:
 	@echo Vendoring...
 	@dep ensure
@@ -63,3 +65,5 @@ pull-linters:
 clean:
 	@echo Cleaning...
 	@rm -rf ./vendor/
+	@rm -f ./test-data/cr_nemo_update.yml
+	@rm -f ./test-scripts/test_output.txt
