@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wpengine/lostromos/crwatcher"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net/http"
 )
 
 var startCmd = &cobra.Command{
@@ -44,6 +46,8 @@ func init() {
 	startCmd.Flags().String("crd-version", "v1", "the version of the CRD you want monitored")
 	startCmd.Flags().String("crd-namespace", metav1.NamespaceNone, "(optional) the namespace of the CRD you want monitored, only needed for namespaced CRDs (ex: default)")
 	startCmd.Flags().String("templates", "", "absolute path to the directory with your template files")
+	startCmd.Flags().String("metrics-address", ":8080", "The address and port for the metrics endpoint")
+	startCmd.Flags().String("metrics-endpoint", "/metrics", "The URI for the metrics endpoint")
 
 	viperBindFlag("k8s.config", startCmd.Flags().Lookup("kube-config"))
 	viperBindFlag("crd.name", startCmd.Flags().Lookup("crd-name"))
@@ -51,6 +55,8 @@ func init() {
 	viperBindFlag("crd.version", startCmd.Flags().Lookup("crd-version"))
 	viperBindFlag("crd.namespace", startCmd.Flags().Lookup("crd-namespace"))
 	viperBindFlag("templates", startCmd.Flags().Lookup("templates"))
+	viperBindFlag("metrics.address", startCmd.Flags().Lookup("metrics-address"))
+	viperBindFlag("metrics.endpoint", startCmd.Flags().Lookup("metrics-endpoint"))
 }
 
 func homeDir() string {
@@ -100,6 +106,13 @@ func buildCRWatcher(cfg *restclient.Config) *crwatcher.CRWatcher {
 func startServer() {
 	cfg := getKubeClient()
 	crw := buildCRWatcher(cfg)
+	http.Handle(viper.GetString("metrics.endpoint"), promhttp.Handler())
+	go func() {
+		err := http.ListenAndServe(viper.GetString("metrics.address"), nil)
+		if err != nil {
+			panic(err.Error())
+		}
+	}()
 	err := crw.Watch(wait.NeverStop)
 	if err != nil {
 		panic(err.Error())
