@@ -30,7 +30,7 @@ export KUBECONFIG=$HOME/.kube/config
 export PATH=${PATH}:${GOPATH:?}/bin
 
 # It's important we are on this version or higher due to issues with kubectl working with <=0.22.2
-MINIKUBE_VERSION=v0.22.3
+MINIKUBE_VERSION=v0.23.0
 KUBECTL_VERSION=v1.8.2
 NSENTER_IMAGE=jpetazzo/nsenter
 
