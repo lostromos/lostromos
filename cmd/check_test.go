@@ -29,11 +29,11 @@ var checktests = []struct {
 	errors   bool
 	errorOut string
 }{
-	{"/path/not/found", "../test-data/cr_nemo.yml", "", true, "ERROR: your templates directory does not exist"},
-	{"../test-data/templates/0_base.tmpl", "../test-data/cr_nemo.yml", "", true, "ERROR: your templates directory is not a directory"},
-	{"../test-data/templates/", "/path/not/found", "", true, "ERROR: your CR file does not exist"},
-	{"../test-data/templates/", "../test-data/", "", true, "ERROR: your CR file is not a file"},
-	{"../test-data/templates/", "../test-data/cr_nemo.yml", validtemplate, false, ""},
+	{"/path/not/found", "../test/data/cr_nemo.yml", "", true, "ERROR: your templates directory does not exist"},
+	{"../test/data/templates/0_base.tmpl", "../test/data/cr_nemo.yml", "", true, "ERROR: your templates directory is not a directory"},
+	{"../test/data/templates/", "/path/not/found", "", true, "ERROR: your CR file does not exist"},
+	{"../test/data/templates/", "../test/data/", "", true, "ERROR: your CR file is not a file"},
+	{"../test/data/templates/", "../test/data/cr_nemo.yml", validtemplate, false, ""},
 }
 
 var validtemplate = "---\n\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: nemo-configmap\ndata:\n  by: Disney\n\n\n---\n\napiVersion: apps/v1beta1\nkind: Deployment\nmetadata:\n  name: nemo-nginx\nspec:\n  replicas: 1\n  template:\n    metadata:\n      labels:\n        app: nemo\n        component: nginx\n    spec:\n      containers:\n      - name: nginx\n        image: nginx:alpine\n        ports:\n        - containerPort: 80\n\n"

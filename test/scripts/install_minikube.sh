@@ -31,7 +31,7 @@ export PATH=${PATH}:${GOPATH:?}/bin
 
 # It's important we are on this version or higher due to issues with kubectl working with <=0.22.2
 MINIKUBE_VERSION=v0.23.0
-KUBECTL_VERSION=v1.8.2
+KUBECTL_VERSION=v1.7.9
 NSENTER_IMAGE=jpetazzo/nsenter
 
 install_bin() {
@@ -77,8 +77,7 @@ check_or_install_minikube
 MINIKUBE_BIN=$(which minikube)
 
 # Start minikube
-sudo -E ${MINIKUBE_BIN} start --vm-driver=none \
-    --extra-config=apiserver.Authorization.Mode=RBAC
+sudo -E ${MINIKUBE_BIN} start --vm-driver=none
 
 # Wait til settles
 echo "INFO: Waiting for minikube cluster to be ready ..."

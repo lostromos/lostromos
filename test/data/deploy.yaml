@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lostromos
+  labels:
+    purpose: Lostromos
+spec:
+  containers:
+  - name: lostromos
+    image: lostromos:test
+    ports:
+      - containerPort: 8080
+    imagePullPolicy: IfNotPresent
+    args: ["start", "--debug", "--nop", "--config", "/test/data/config.yaml"]
+  restartPolicy: OnFailure

@@ -22,20 +22,35 @@ To run a functional test on your own to validate that the lostromos app is worki
 following steps.
 
 1. Setup kubectl against a cluster (minikube works just fine)
-2. `kubectl apply -f test-data/crd.yml`
-3. `kubectl apply -f test-data/cr_things.yml`
-4. `go run main.go start --config test-data/config.yaml`
+2. `kubectl apply -f test/data/crd.yml`
+3. `kubectl apply -f test/data/cr_things.yml`
+4. `go run main.go start --config test/data/config.yaml`
     - See that it prints out that `thing1` and `thing2` were added
-5. In another shell `kubectl apply -f test-data/cr_nemo.yml`
+5. In another shell `kubectl apply -f test/data/cr_nemo.yml`
     - See that it prints out that `nemo` was added
 6. `kubectl edit character nemo` and change a field
     - See that it prints out that `nemo` was changed
-7. `kubectl delete -f test-data/cr_nemo.yml`
+7. `kubectl delete -f test/data/cr_nemo.yml`
     - See that it prints out that `nemo` was deleted
-8. `kubectl delete -f test-data/cr_things.yml`
+8. `kubectl delete -f test/data/cr_things.yml`
     - See that it prints out that `thing1` and `thing2` were deleted
-9. That's it. You can stop the process and `kubectl delete -f test-data/crd.yml` to cleanup the rest of the test data.
+9. That's it. You can stop the process and `kubectl delete -f test/data/crd.yml` to cleanup the rest of the test data.
 
-This also happens to be what we do in the [Integration Tests](./../test-scripts/integration-tests.sh) to ensure we are
+This also happens to be what we do in the [Integration Tests](./../test/scripts/integration-tests.sh) to ensure we are
 working as expected after every build. Checkout our [Testing](./testing.md) documentation for more information on that
 script as well as unit tests.
+
+## Using the Docker Image
+
+If you are trying to run testing on the docker image, the easy way to link your minikube context with the image is to
+run `eval $(minikube docker-env)` and build the test image found [here](../test/docker/Dockerfile). You might want to
+upgrade to a version of minikube 0.23.0 or above like we do in our integration tests. Once you have an image and a
+Minikube context you should run
+
+```bash
+kubectl create -f test/data/deploy.yaml
+kubectl expose pod lostromos --type=LoadBalancer
+curl `minikube service lostromos --url`/status
+```
+
+This will create a lostromos service in your minikube environment. Alternatively you can run `make docker-build-test`.
