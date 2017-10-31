@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tmplctlr
+package tmpl
 
 import "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
