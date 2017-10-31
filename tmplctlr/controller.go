@@ -49,6 +49,7 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	c.apply(r)
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
+	metrics.TotalEvents.Inc()
 }
 
 // ResourceUpdated is called when a custom resource is updated or during a
@@ -57,6 +58,7 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	fmt.Printf("INFO: resource updated, cr: %s\n", newR.GetName())
 	c.apply(newR)
 	metrics.UpdatedReleases.Inc()
+	metrics.TotalEvents.Inc()
 }
 
 func (c Controller) apply(r *unstructured.Unstructured) {
@@ -98,6 +100,7 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	fmt.Printf("DEBUG: deleted Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
+	metrics.TotalEvents.Inc()
 }
 
 func (c Controller) generateTemplate(cr *CustomResource) (string, error) {

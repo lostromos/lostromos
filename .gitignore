@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+*.pyc
 
 # Test binary, build with `go test -c`
 *.test
@@ -19,7 +20,3 @@ lostromos
 
 # JetBrains IDE files
 .idea
-
-# Test Data used in Integration Testing
-test-data/cr_nemo_update.yml
-test-scripts/test_output.txt

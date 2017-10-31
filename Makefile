@@ -22,6 +22,7 @@ BUILD_TIME    := $(shell date -u '+%Y-%m-%d_%I:%M:%S%p')
 LD_FLAGS      := -s -w -X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.GitHash=$(GIT_HASH) -X $(PKG)/version.BuildTime=$(BUILD_TIME)
 
 MARKDOWN_LINTER := wpengine/mdl
+PYTHON_LINTER := wpengine/pylint
 
 all: lint test build
 
@@ -35,20 +36,25 @@ test: | vendor
 
 integration-tests:
 	@echo Running integration tests...
-	@test-scripts/integration-tests.sh
+	@nosetests test-scripts/integration_tests.py
 
 coverage: | vendor
 	@echo Generating coverage report...
 	@./test-scripts/coverage.sh
 
-lint: golint lint-markdown
+lint: golint lint-markdown lint-python
 
 golint: | vendor
-	@echo Linting...
+	@echo Linting Go files...
 	@gometalinter --vendor --deadline=90s --enable=gofmt --disable=gotype ./...
 
 lint-markdown:
+	@echo Linting Markdown files...
 	@find . -path ./vendor -prune -o -name "*.md" -exec bash -c 'docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} || kill $$PPID' \;
+
+lint-python:
+	@echo Linting Python files...
+	@docker run -v `pwd`/test-scripts:/workspace ${PYTHON_LINTER} /workspace
 
 install-deps:
 	go get -u github.com/golang/dep/cmd/dep
@@ -61,6 +67,7 @@ vendor:
 
 pull-linters:
 	docker pull ${MARKDOWN_LINTER}
+	docker pull ${PYTHON_LINTER}
 
 clean:
 	@echo Cleaning...

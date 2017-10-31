@@ -11,6 +11,15 @@ branch before deploying a new image.
 Travis uses a yml system of running tasks. Check out the [.travis.yml](../.travis.yml) file to see more detailed
 information about what operations we run. The travis job is hosted [here](https://travis-ci.org/wpengine/lostromos).
 
+### Slow Builds
+
+We use the open source version of [TravisCI](https://travis-ci.org), which means we are beholden to whatever state of
+the system Travis is in at that point. You can go [here](https://www.traviscistatus.com/) to check out the status of
+Travis as well as some metrics on how many other builds are currently going. In the case where your build is going
+slowly, or it's sitting in the queue for an extended period, the metrics at the bottom of the page might give you an
+idea as to why. It doesn't seem there is anything we can do about this situation, so this is more about information then
+proposing a solution.
+
 ## Multiple Builds
 
 We use a build matrix consisting of Go version 1.9 and the latest master for unit testing and integration testing. That

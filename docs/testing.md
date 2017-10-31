@@ -30,4 +30,5 @@ before actually running the integration tests. It should be noted that we need m
 ### Running Integration Tests Locally
 
 To run integration tests locally you need to run `minikube start` to get a minikube context, and then run
-`make integration-test`.
+`make integration-test`. You will need to have installed the necessary requirements by running
+`pip3 install requirements.txt`. Testing is done via a Python module using nosetests.
