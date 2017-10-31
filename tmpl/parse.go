@@ -12,25 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tmplctlr
+package tmpl
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"io"
+	"text/template"
 )
 
-func TestName(t *testing.T) {
-	r := basicCR.Name()
-	assert.Equal(t, "dory", r)
-}
+// Parse will take a CustomResource, template directory and an io.Writer and
+// print the resulting templates to the io.Writer
+func Parse(cr *CustomResource, dir string, w io.Writer) error {
+	tmpl, err := template.ParseGlob(dir)
+	if err != nil {
+		return err
+	}
 
-func TestGetField(t *testing.T) {
-	r := basicCR.GetField("metadata", "name")
-	assert.Equal(t, "dory", r)
-}
-
-func TestGetFieldReturnsEmptyIfNotFound(t *testing.T) {
-	r := basicCR.GetField("Something", "made", "up")
-	assert.Empty(t, r)
+	return tmpl.Execute(w, cr)
 }

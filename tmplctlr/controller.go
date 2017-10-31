@@ -16,13 +16,11 @@ package tmplctlr
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
-	"log"
 	"path/filepath"
-	"text/template"
 
 	"github.com/wpengine/lostromos/metrics"
+	"github.com/wpengine/lostromos/tmpl"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -62,18 +60,23 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 }
 
 func (c Controller) apply(r *unstructured.Unstructured) {
-	cr := &CustomResource{
+	cr := &tmpl.CustomResource{
 		Resource: r,
 	}
-	tmpFile, err := c.generateTemplate(cr)
+	tmpFile, err := ioutil.TempFile("", "lostromos")
+	if err != nil {
+		fmt.Printf("ERROR: failed to get tmp file error: %s\n", err)
+		return
+	}
+	err = tmpl.Parse(cr, c.templatePath, tmpFile)
 	if err != nil {
 		fmt.Printf("ERROR: failed to generate template error: %s\n", err)
 		return
 	}
-	out, err := c.Client.Apply(tmpFile)
+	out, err := c.Client.Apply(tmpFile.Name())
 	if err != nil {
 		fmt.Printf("ERROR: failed to apply template error: %s - [ %s ]\n", err, out)
-		fmt.Printf("DEBUG: template to apply: \n%s", readFile(tmpFile))
+		fmt.Printf("DEBUG: template to apply: \n%s", readFile(tmpFile.Name()))
 		return
 	}
 	fmt.Printf("DEBUG: applied Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
@@ -82,49 +85,30 @@ func (c Controller) apply(r *unstructured.Unstructured) {
 // ResourceDeleted is called when a custom resource is created and will generate
 // the template files and delete them from Kubernetes
 func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
-	cr := &CustomResource{
+	cr := &tmpl.CustomResource{
 		Resource: r,
 	}
 	fmt.Printf("INFO: resource deleted, cr: %s\n", r.GetName())
-	tmpFile, err := c.generateTemplate(cr)
+	tmpFile, err := ioutil.TempFile("", "lostromos")
+	if err != nil {
+		fmt.Printf("ERROR: failed to get tmp file error: %s\n", err)
+		return
+	}
+	err = tmpl.Parse(cr, c.templatePath, tmpFile)
 	if err != nil {
 		fmt.Printf("ERROR: failed to generate template error: %s\n", err)
 		return
 	}
-	out, err := c.Client.Delete(tmpFile)
+	out, err := c.Client.Delete(tmpFile.Name())
 	if err != nil {
 		fmt.Printf("ERROR: failed to delete template error: %s - [ %s ]\n", err, out)
-		fmt.Printf("DEBUG: template to delete: \n%s", readFile(tmpFile))
+		fmt.Printf("DEBUG: template to delete: \n%s", readFile(tmpFile.Name()))
 		return
 	}
 	fmt.Printf("DEBUG: deleted Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
 	metrics.TotalEvents.Inc()
-}
-
-func (c Controller) generateTemplate(cr *CustomResource) (string, error) {
-	tmpl, err := template.ParseGlob(c.templatePath)
-	if err != nil {
-		return "", err
-	}
-	tf, err := ioutil.TempFile("", "lostromos")
-	if err != nil {
-		return "", err
-	}
-	defer close(tf)
-	err = tmpl.Execute(tf, cr)
-	if err != nil {
-		return "", err
-	}
-	return tf.Name(), nil
-}
-
-func close(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func readFile(filepath string) string {
