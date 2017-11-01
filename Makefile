@@ -72,5 +72,4 @@ pull-linters:
 clean:
 	@echo Cleaning...
 	@rm -rf ./vendor/
-	@rm -f ./test-data/cr_nemo_update.yml
 	@rm -f ./test-scripts/test_output.txt
