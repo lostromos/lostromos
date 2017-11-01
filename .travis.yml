@@ -7,10 +7,6 @@ go:
   - 1.9.x
   - master
 
-env:
-  - INTEGRATION=true
-  - INTEGRATION=false
-
 matrix:
   fast_finish: true
   allow_failures:
@@ -25,18 +21,14 @@ before_install:
 install:
   - dep ensure
   - sudo pip3 install -r ./requirements.txt
+  - ./test-scripts/install_minikube.sh
 
 script:
   - make lint
-  - if [ $INTEGRATION == 'true' ]; then
-      make build || travis_terminate 1;
-      ./test-scripts/cluster-up-minikube.sh  || travis_terminate 1;
-      make integration-tests || travis_terminate 1;
-    else
-      make test || travis_terminate 1;
-      make build || travis_terminate 1;
-      make coverage || travis_terminate 1;
-    fi
+  - make test
+  - make build
+  - make integration-tests
+  - make coverage
 
 after_script:
   - ./lostromos version
