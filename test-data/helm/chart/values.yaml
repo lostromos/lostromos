@@ -1,0 +1,2 @@
+image: dockercloud/hello-world:latest
+replicas: 1

@@ -8,12 +8,13 @@
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "^4.0.0"
+  # version = "^4.0.0"
+  revision = "82aa063804cf055e16e8911250f888bc216e8b61"
 
 # Found in https://github.com/kubernetes/client-go/blob/release-4.0/Godeps/Godeps.json
 [[override]]
   name = "k8s.io/apimachinery"
-  revision = "917740426ad66ff818da4809990480bcc0786a77"
+  revision = "3b05bbfa0a45413bfa184edbf9af617e277962fb" #"917740426ad66ff818da4809990480bcc0786a77"
 
 [[constraint]]
   name = "github.com/stretchr/testify"
@@ -26,3 +27,16 @@
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   version = "0.8.0"
+
+[[constraint]]
+  name = "k8s.io/helm"
+  version = "2.7.0"
+
+[[override]]
+  name = "google.golang.org/grpc"
+  # packages = ["codes", "credentials", "grpclog", "internal", "keepalive", "metadata", "naming", "peer", "stats", "tap", "transport"]
+  revision = "8050b9cbc271307e5a716a9d782803d09b0d6f2d"
+
+[[constraint]]
+  name = "go.uber.org/zap"
+  version = "1.7.1"

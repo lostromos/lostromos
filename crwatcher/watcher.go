@@ -40,7 +40,7 @@ type Config struct {
 // CRWatcher thing that watches
 type CRWatcher struct {
 	Config     *Config
-	resource   *dynamic.ResourceClient
+	resource   dynamic.ResourceInterface
 	handler    cache.ResourceEventHandlerFuncs
 	store      cache.Store
 	controller cache.Controller
