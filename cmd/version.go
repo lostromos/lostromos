@@ -20,10 +20,10 @@ import (
 )
 
 func init() {
-	LostromosCmd.AddCommand(commandDefintion)
+	LostromosCmd.AddCommand(commandDefinition)
 }
 
-var commandDefintion = &cobra.Command{
+var commandDefinition = &cobra.Command{
 	Use:   "version",
 	Short: `Show the version number.`,
 	Run: func(command *cobra.Command, args []string) {

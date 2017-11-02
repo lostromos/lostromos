@@ -22,7 +22,7 @@ import (
 
 // Controller provides a crwatcher.ResourceController that prints the events out
 // as the are received. It is a basic implementation that can be used for
-// debuging. It also serves as an example for how you could implement your own
+// debugging. It also serves as an example for how you could implement your own
 // crwatcher.ResourceController.
 type Controller struct{}
 
