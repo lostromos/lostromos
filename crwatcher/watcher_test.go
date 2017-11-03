@@ -54,6 +54,18 @@ func TestNewCRWatcher(t *testing.T) {
 	assert.NotNil(t, cw.logger)
 }
 
+func TestNewCRWatcherReturnsNilOnError(t *testing.T) {
+	kubeCfg := &restclient.Config{}
+	kubeCfg.Host = "http:///"
+	cfg := &Config{PluralName: "test"}
+
+	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{}, testLogger{})
+
+	assert.Nil(t, cw)
+	assert.NotNil(t, err)
+	assert.Equal(t, "host must be a URL or a host:port pair: \"http:///\"", err.Error())
+}
+
 func TestLogKubeError(t *testing.T) {
 	kubeCfg := &restclient.Config{}
 	cfg := &Config{PluralName: "test"}

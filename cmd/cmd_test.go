@@ -23,11 +23,13 @@ import (
 )
 
 func TestSetupLogger(t *testing.T) {
-	viper.Set("debug", false)
+	viper.Set("logging.debug", false)
+	viper.Set("logging.pretty", false)
 	setupLogging()
 	assert.Equal(t, false, logger.Desugar().Core().Enabled(zap.DebugLevel), "debug logging should be false")
 
-	viper.Set("debug", true)
+	viper.Set("logging.debug", false)
+	viper.Set("logging.pretty", true)
 	setupLogging()
-	assert.Equal(t, true, logger.Desugar().Core().Enabled(zap.DebugLevel), "debug logging should be true")
+	assert.Equal(t, true, logger.Desugar().Core().Enabled(zap.InfoLevel), "debug logging should be false")
 }

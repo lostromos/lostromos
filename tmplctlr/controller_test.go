@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tmplctlr
+package tmplctlr_test
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -22,8 +23,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"github.com/wpengine/lostromos/metrics"
+	"github.com/wpengine/lostromos/tmplctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -41,21 +45,25 @@ var (
 		},
 	}
 
-	testTemplates = []templateFile{
+	testTemplates = []testFile{
 		// T0.tmpl is a plain template file that just invokes T1.
 		{"0_base.tmpl", `--- {{template "file1.tmpl" . }}`},
 		// T1.tmpl defines a template, T1 that invokes T2.
 		{"file1.tmpl", `name: {{ .GetField "metadata" "name"  }}-configmap`},
 	}
+
+	testBadTemplates = []testFile{
+		{"base", `--- {{template "not there.tmpl" . }}`},
+	}
 )
 
 // templateFile defines the contents of a template to be stored in a file, for testing.
-type templateFile struct {
+type testFile struct {
 	name     string
 	contents string
 }
 
-func createTestDir(files []templateFile) string {
+func createTestDir(files []testFile) string {
 	dir, err := ioutil.TempDir("", "template")
 	if err != nil {
 		log.Fatal(err)
@@ -74,51 +82,232 @@ func createTestDir(files []templateFile) string {
 	return dir
 }
 
-func TestNewController(t *testing.T) {
-	dir := "dir"
-	kubeCfg := "/home/me/kubecfg"
-	c := NewController(dir, kubeCfg, nil)
-	assert.Equal(t, filepath.Join(dir, "*.tmpl"), c.templatePath)
+func getPromCounterValue(metric string) float64 {
+	mf, _ := prometheus.DefaultGatherer.Gather()
+	for _, s := range mf {
+		if s.GetName() == metric {
+			return s.GetMetric()[0].GetCounter().GetValue()
+		}
+	}
+	return 0
 }
 
-func ExampleController_ResourceAdded() {
+func getPromGaugeValue(metric string) float64 {
+	mf, _ := prometheus.DefaultGatherer.Gather()
+	for _, s := range mf {
+		if s.GetName() == metric {
+			return s.GetMetric()[0].GetGauge().GetValue()
+		}
+	}
+	return 0
+}
+
+// Used in assertCounters to mark the expected change in counters
+// values default to 0 so you only have to specify the changes
+type counterTest struct {
+	create    int
+	createErr int
+	delete    int
+	deleteErr int
+	update    int
+	updateErr int
+	events    int
+	releases  int
+}
+
+func assertCounters(t *testing.T, c counterTest, f func()) {
+	metrics.ManagedReleases.Set(float64(10))
+	csb := getPromCounterValue("releases_create_total")
+	ceb := getPromCounterValue("releases_create_error_total")
+	dsb := getPromCounterValue("releases_delete_total")
+	deb := getPromCounterValue("releases_delete_error_total")
+	usb := getPromCounterValue("releases_update_total")
+	ueb := getPromCounterValue("releases_update_error_total")
+	eb := getPromCounterValue("releases_events_total")
+	rb := getPromGaugeValue("releases_total")
+
+	f()
+
+	csa := getPromCounterValue("releases_create_total")
+	cea := getPromCounterValue("releases_create_error_total")
+	dsa := getPromCounterValue("releases_delete_total")
+	dea := getPromCounterValue("releases_delete_error_total")
+	usa := getPromCounterValue("releases_update_total")
+	uea := getPromCounterValue("releases_update_error_total")
+	ea := getPromCounterValue("releases_events_total")
+	ra := getPromGaugeValue("releases_total")
+	assert.Equal(t, float64(c.create), csa-csb, "change in releases_create_total incorrect")
+	assert.Equal(t, float64(c.createErr), cea-ceb, "change in releases_create_error_total incorrect")
+	assert.Equal(t, float64(c.delete), dsa-dsb, "change in releases_delete_total incorrect")
+	assert.Equal(t, float64(c.deleteErr), dea-deb, "change in releases_delete_error_total incorrect")
+	assert.Equal(t, float64(c.update), usa-usb, "change in releases_update_total incorrect")
+	assert.Equal(t, float64(c.updateErr), uea-ueb, "change in releases_update_error_total incorrect")
+	assert.Equal(t, float64(c.events), ea-eb, "change in releases_events_total incorrect")
+	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
+}
+
+func TestResourceAddedHappyPath(t *testing.T) {
 	dir := createTestDir(testTemplates)
 	// Clean up after the test; another quirk of running as an example.
 	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
 
-	c := NewController(dir, "", zap.NewExample().Sugar())
-	c.Client = kubePrint{}
+	mockKube.EXPECT().Apply(gomock.Any())
 
-	c.ResourceAdded(testResource)
-	// Output:
-	// {"level":"info","msg":"resource added","resource":"dory"}
-	// {"level":"debug","msg":"applied Kubernetes objects","resource":"dory","result":"Kube Apply Called"}
+	ct := counterTest{
+		events:   1,
+		create:   1,
+		releases: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceAdded(testResource)
+	})
 }
 
-func ExampleController_ResourceUpdated() {
+func TestResourceAddedApplyFails(t *testing.T) {
 	dir := createTestDir(testTemplates)
 	// Clean up after the test; another quirk of running as an example.
 	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
 
-	c := NewController(dir, "", zap.NewExample().Sugar())
-	c.Client = kubePrint{}
+	mockKube.EXPECT().Apply(gomock.Any()).Return("", errors.New("apply failed"))
 
-	c.ResourceUpdated(testResource, testResource)
-	// Output:
-	// {"level":"info","msg":"resource updated","resource":"dory"}
-	// {"level":"debug","msg":"applied Kubernetes objects","resource":"dory","result":"Kube Apply Called"}
+	ct := counterTest{
+		events:    1,
+		createErr: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceAdded(testResource)
+	})
 }
 
-func ExampleController_ResourceDeleted() {
+func TestResourceAddedTemplatingFails(t *testing.T) {
+	dir := createTestDir(testBadTemplates)
+	// Clean up after the test; another quirk of running as an example.
+	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
+
+	ct := counterTest{
+		events:    1,
+		createErr: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceAdded(testResource)
+	})
+}
+
+func TestResourceDeletedHappyPath(t *testing.T) {
 	dir := createTestDir(testTemplates)
 	// Clean up after the test; another quirk of running as an example.
 	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
 
-	c := NewController(dir, "", zap.NewExample().Sugar())
-	c.Client = kubePrint{}
+	mockKube.EXPECT().Delete(gomock.Any())
 
-	c.ResourceDeleted(testResource)
-	// Output:
-	// {"level":"info","msg":"resource deleted","resource":"dory"}
-	// {"level":"debug","msg":"deleted Kubernetes objects","resource":"dory","result":"Kube Delete Called"}
+	ct := counterTest{
+		events:   1,
+		delete:   1,
+		releases: -1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceDeleted(testResource)
+	})
+}
+
+func TestResourceDeletedApplyFails(t *testing.T) {
+	dir := createTestDir(testTemplates)
+	// Clean up after the test; another quirk of running as an example.
+	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
+
+	mockKube.EXPECT().Delete(gomock.Any()).Return("", errors.New("apply failed"))
+
+	ct := counterTest{
+		events:    1,
+		deleteErr: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceDeleted(testResource)
+	})
+}
+
+func TestResourceDeletedTemplatingFails(t *testing.T) {
+	dir := createTestDir(testBadTemplates)
+	// Clean up after the test; another quirk of running as an example.
+	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
+
+	ct := counterTest{
+		events:    1,
+		deleteErr: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceDeleted(testResource)
+	})
+}
+
+func TestResourceUpdatedHappyPath(t *testing.T) {
+	dir := createTestDir(testTemplates)
+	// Clean up after the test; another quirk of running as an example.
+	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
+
+	mockKube.EXPECT().Apply(gomock.Any())
+
+	ct := counterTest{
+		events: 1,
+		update: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceUpdated(testResource, testResource)
+	})
+}
+
+func TestResourceUpdatedApplyFails(t *testing.T) {
+	dir := createTestDir(testTemplates)
+	// Clean up after the test; another quirk of running as an example.
+	defer os.RemoveAll(dir)
+	c := tmplctlr.NewController(dir, "", nil)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockKube := NewMockKubeClient(mockCtrl)
+	c.Client = mockKube
+
+	mockKube.EXPECT().Apply(gomock.Any()).Return("", errors.New("apply failed"))
+
+	ct := counterTest{
+		events:    1,
+		updateErr: 1,
+	}
+	assertCounters(t, ct, func() {
+		c.ResourceUpdated(testResource, testResource)
+	})
 }

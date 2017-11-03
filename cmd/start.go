@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"errors"
 	"path/filepath"
 
 	"net/http"
@@ -117,15 +118,27 @@ func buildCRWatcher(cfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 
 func getController() crwatcher.ResourceController {
 	if viper.GetBool("nop") {
+		logger = logger.With("controller", "print")
+		logger.Info("nop specified, using the print controller")
 		return &printctlr.Controller{}
 	}
 	if viper.GetString("helm.chart") != "" {
+
 		chrt := viper.GetString("helm.chart")
 		hns := viper.GetString("helm.namespace")
 		hrn := viper.GetString("helm.releasePrefix")
 		ht := viper.GetString("helm.tiller")
+		logger = logger.With("controller", "helm")
+		logger.Infow("using helm controller for deployment",
+			"helmChart", chrt,
+			"helmNamespace", hns,
+			"helmReleasePrefix", hrn,
+			"helmTiller", ht,
+		)
 		return helmctlr.NewController(chrt, hns, hrn, ht, logger)
 	}
+	logger = logger.With("controller", "template")
+	logger.Infow("using template controller for deployment", "templateDir", viper.GetString("templates"))
 	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"), logger)
 }
 
@@ -137,7 +150,24 @@ func (c crLogger) Error(err error) {
 	c.logger.Errorw("kubernetes error", "error", err)
 }
 
+func validateOptions() error {
+	if viper.GetString("crd.name") == "" {
+		return errors.New("crd-name is a required parameter")
+	}
+	if viper.GetString("crd.group") == "" {
+		return errors.New("crd-group is a required parameter")
+	}
+	if viper.GetString("crd.version") == "" {
+		return errors.New("crd-version is a required parameter")
+	}
+	return nil
+}
+
 func startServer() error {
+	if err := validateOptions(); err != nil {
+		return err
+	}
+
 	version.Print(logger)
 
 	cfg, err := getKubeClient()

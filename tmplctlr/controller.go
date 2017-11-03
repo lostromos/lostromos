@@ -16,6 +16,7 @@ package tmplctlr
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/wpengine/lostromos/metrics"
@@ -51,7 +52,12 @@ func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger) *C
 func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
 	c.logger.Infow("resource added", "resource", r.GetName())
-	c.apply(r)
+	out, err := c.apply(r)
+	if err != nil {
+		c.logger.Errorw("failed to add resource", "resource", r.GetName(), "error", err, "cmdOutput", out)
+		metrics.CreateFailures.Inc()
+		return
+	}
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
 }
@@ -61,31 +67,13 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
 	c.logger.Infow("resource updated", "resource", newR.GetName())
-	c.apply(newR)
+	out, err := c.apply(newR)
+	if err != nil {
+		c.logger.Errorw("failed to update resource", "resource", newR.GetName(), "error", err, "cmdOutput", out)
+		metrics.UpdateFailures.Inc()
+		return
+	}
 	metrics.UpdatedReleases.Inc()
-}
-
-func (c Controller) apply(r *unstructured.Unstructured) {
-	cr := &tmpl.CustomResource{
-		Resource: r,
-	}
-	tmpFile, err := ioutil.TempFile("", "lostromos")
-	if err != nil {
-		c.logger.Errorw("failed to get tmp file", "error", err)
-		return
-	}
-	err = tmpl.Parse(cr, c.templatePath, tmpFile)
-	if err != nil {
-		c.logger.Errorw("failed to generate template error", "error", err)
-		return
-	}
-	out, err := c.Client.Apply(tmpFile.Name())
-	if err != nil {
-		c.logger.Errorw("failed to apply template", "error", err, "result", out)
-		c.logger.Debugw("template we want to apply", "template", readFile(tmpFile.Name()), "fileName", tmpFile.Name())
-		return
-	}
-	c.logger.Debugw("applied Kubernetes objects", "resource", r.GetName(), "result", out)
 }
 
 // ResourceDeleted is called when a custom resource is created and will generate
@@ -93,34 +81,40 @@ func (c Controller) apply(r *unstructured.Unstructured) {
 func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
 	c.logger.Infow("resource deleted", "resource", r.GetName())
-	cr := &tmpl.CustomResource{
-		Resource: r,
-	}
-	tmpFile, err := ioutil.TempFile("", "lostromos")
+	out, err := c.delete(r)
 	if err != nil {
-		c.logger.Errorw("failed to get tmp file", "error", err)
+		c.logger.Errorw("failed to delete resource", "resource", r.GetName(), "error", err, "cmdOutput", out)
+		metrics.DeleteFailures.Inc()
 		return
 	}
-	err = tmpl.Parse(cr, c.templatePath, tmpFile)
-	if err != nil {
-		c.logger.Errorw("failed to generate template error", "error", err)
-		return
-	}
-	out, err := c.Client.Delete(tmpFile.Name())
-	if err != nil {
-		c.logger.Errorw("failed to delete template", "error", err, "result", out)
-		c.logger.Debugw("template we want to delete", "template", readFile(tmpFile.Name()), "fileName", tmpFile.Name())
-		return
-	}
-	c.logger.Debugw("deleted Kubernetes objects", "resource", r.GetName(), "result", out)
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
 }
 
-func readFile(filepath string) string {
-	content, err := ioutil.ReadFile(filepath)
+func (c Controller) apply(r *unstructured.Unstructured) (output string, err error) {
+	tmpFile, err := c.buildTemplate(r)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	return string(content[:])
+	return c.Client.Apply(tmpFile.Name())
+}
+
+func (c Controller) delete(r *unstructured.Unstructured) (output string, err error) {
+	tmpFile, err := c.buildTemplate(r)
+	if err != nil {
+		return "", err
+	}
+	return c.Client.Delete(tmpFile.Name())
+}
+
+func (c Controller) buildTemplate(r *unstructured.Unstructured) (tmpFile *os.File, err error) {
+	cr := &tmpl.CustomResource{
+		Resource: r,
+	}
+	tmpFile, err = ioutil.TempFile("", "lostromos")
+	if err != nil {
+		return tmpFile, err
+	}
+	err = tmpl.Parse(cr, c.templatePath, tmpFile)
+	return tmpFile, err
 }

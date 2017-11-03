@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"fmt"
 	"path"
 	"testing"
 
@@ -97,4 +98,35 @@ func TestGetControllerReturnsTemplateController(t *testing.T) {
 	ctlr := getController().(*tmplctlr.Controller)
 
 	assert.NotNil(t, ctlr)
+}
+
+func TestValidateOptions(t *testing.T) {
+	var testCases = []struct {
+		name       string
+		crName     string
+		crGroup    string
+		crVersion  string
+		crNS       string
+		successful bool
+	}{
+		{"Test starts succeessfully with all fields", "test", "stable.lostromos", "v1", "default", true},
+		{"Test fails without CR Name", "", "stable.lostromos", "v1", "default", false},
+		{"Test fails without CR Group", "test", "", "v1", "default", false},
+		{"Test fails without CR Version", "test", "stable.lostromos", "", "default", false},
+		{"Test starts without a CR Namespace", "test", "stable.lostromos", "v1", "", true},
+	}
+
+	for _, tt := range testCases {
+		viper.Set("crd.name", tt.crName)
+		viper.Set("crd.group", tt.crGroup)
+		viper.Set("crd.version", tt.crVersion)
+		viper.Set("crd.namespace", tt.crNS)
+
+		err := validateOptions()
+		if tt.successful {
+			assert.Nil(t, err, fmt.Sprintf("Test: %s, should not return an error. Error: %s", tt.name, err))
+		} else {
+			assert.NotNil(t, err, fmt.Sprintf("Test: %s, should return an error", tt.name))
+		}
+	}
 }

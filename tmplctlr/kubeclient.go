@@ -36,24 +36,21 @@ var execCommand = exec.Command
 
 // Apply will execute kubectl apply -f file with the correct config
 func (k Kubectl) Apply(file string) (string, error) {
-	if k.ConfigFile != "" {
-		err := os.Setenv("KUBECONFIG", k.ConfigFile)
-		if err != nil {
-			return "", err
-		}
-	}
-	out, err := execCommand("kubectl", "apply", "-f", file).CombinedOutput()
-	return string(out[:]), err
+	return k.kubectlExec(file, "apply")
 }
 
 // Delete will execute kubectl delete -f file with the correct config
 func (k Kubectl) Delete(file string) (string, error) {
+	return k.kubectlExec(file, "delete")
+}
+
+// Delete will execute kubectl delete -f file with the correct config
+func (k Kubectl) kubectlExec(file, cmd string) (string, error) {
 	if k.ConfigFile != "" {
-		err := os.Setenv("KUBECONFIG", k.ConfigFile)
-		if err != nil {
+		if err := os.Setenv("KUBECONFIG", k.ConfigFile); err != nil {
 			return "", err
 		}
 	}
-	out, err := execCommand("kubectl", "delete", "-f", file).CombinedOutput()
+	out, err := execCommand("kubectl", cmd, "-f", file).CombinedOutput()
 	return string(out[:]), err
 }

@@ -40,6 +40,15 @@ and create, update, and delete resources based on the templates provided.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the LostromosCmd.
 func Execute() {
+	// Before we exit ensure we sync all logs out
+	defer func() {
+		if logger == nil {
+			return
+		}
+		if err := logger.Sync(); err != nil {
+			logger.Errorw("failed to sync logger", "error", err)
+		}
+	}()
 	if err := LostromosCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -51,8 +60,10 @@ func init() {
 
 	LostromosCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/lostromos.yaml)")
 	LostromosCmd.PersistentFlags().BoolP("debug", "", false, "enable debug logging")
+	LostromosCmd.PersistentFlags().BoolP("pretty", "", false, "print logs in human readable form instead of json")
 
-	viperBindFlag("debug", LostromosCmd.PersistentFlags().Lookup("debug"))
+	viperBindFlag("logging.debug", LostromosCmd.PersistentFlags().Lookup("debug"))
+	viperBindFlag("logging.pretty", LostromosCmd.PersistentFlags().Lookup("pretty"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -70,6 +81,8 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	err := viper.ReadInConfig()
+
+	// Setup logging after all config options are read in
 	setupLogging()
 	if err != nil {
 		logger.Debugw("failed to read config file", "error", err)
@@ -86,19 +99,17 @@ func viperBindFlag(name string, flag *pflag.Flag) {
 
 func setupLogging() {
 	cfg := zap.NewProductionConfig()
-
-	if viper.GetBool("debug") {
-		cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	if viper.GetBool("logging.pretty") {
+		cfg = zap.NewDevelopmentConfig()
 	}
-
+	if viper.GetBool("logging.debug") {
+		cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	} else {
+		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
 	l, err := cfg.Build()
 	if err != nil {
 		panic(err)
 	}
 	logger = l.Sugar()
-	defer func() {
-		if err := logger.Sync(); err != nil {
-			logger.Errorw("failed to sync logger", "error", err)
-		}
-	}()
 }
