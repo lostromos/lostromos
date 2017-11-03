@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -76,7 +77,7 @@ func createTestDir(files []templateFile) string {
 func TestNewController(t *testing.T) {
 	dir := "dir"
 	kubeCfg := "/home/me/kubecfg"
-	c := NewController(dir, kubeCfg)
+	c := NewController(dir, kubeCfg, nil)
 	assert.Equal(t, filepath.Join(dir, "*.tmpl"), c.templatePath)
 }
 
@@ -85,15 +86,13 @@ func ExampleController_ResourceAdded() {
 	// Clean up after the test; another quirk of running as an example.
 	defer os.RemoveAll(dir)
 
-	c := &Controller{
-		Client:       kubePrint{},
-		templatePath: filepath.Join(dir, "*.tmpl"),
-	}
+	c := NewController(dir, "", zap.NewExample().Sugar())
+	c.Client = kubePrint{}
 
 	c.ResourceAdded(testResource)
 	// Output:
-	// INFO: resource added, cr: dory
-	// DEBUG: applied Kubernetes objects, cr: dory results: Kube Apply Called
+	// {"level":"info","msg":"resource added","resource":"dory"}
+	// {"level":"debug","msg":"applied Kubernetes objects","resource":"dory","result":"Kube Apply Called"}
 }
 
 func ExampleController_ResourceUpdated() {
@@ -101,15 +100,13 @@ func ExampleController_ResourceUpdated() {
 	// Clean up after the test; another quirk of running as an example.
 	defer os.RemoveAll(dir)
 
-	c := &Controller{
-		Client:       kubePrint{},
-		templatePath: filepath.Join(dir, "*.tmpl"),
-	}
+	c := NewController(dir, "", zap.NewExample().Sugar())
+	c.Client = kubePrint{}
 
 	c.ResourceUpdated(testResource, testResource)
 	// Output:
-	// INFO: resource updated, cr: dory
-	// DEBUG: applied Kubernetes objects, cr: dory results: Kube Apply Called
+	// {"level":"info","msg":"resource updated","resource":"dory"}
+	// {"level":"debug","msg":"applied Kubernetes objects","resource":"dory","result":"Kube Apply Called"}
 }
 
 func ExampleController_ResourceDeleted() {
@@ -117,13 +114,11 @@ func ExampleController_ResourceDeleted() {
 	// Clean up after the test; another quirk of running as an example.
 	defer os.RemoveAll(dir)
 
-	c := &Controller{
-		Client:       kubePrint{},
-		templatePath: filepath.Join(dir, "*.tmpl"),
-	}
+	c := NewController(dir, "", zap.NewExample().Sugar())
+	c.Client = kubePrint{}
 
 	c.ResourceDeleted(testResource)
 	// Output:
-	// INFO: resource deleted, cr: dory
-	// DEBUG: deleted Kubernetes objects, cr: dory results: Kube Delete Called
+	// {"level":"info","msg":"resource deleted","resource":"dory"}
+	// {"level":"debug","msg":"deleted Kubernetes objects","resource":"dory","result":"Kube Delete Called"}
 }

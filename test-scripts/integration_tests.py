@@ -109,6 +109,8 @@ class IntegrationTest(TestCase):
             [
                 _LOSTROMOS_EXE,
                 "start",
+                "--debug",
+                "--nop",
                 "--config",
                 _LOSTROMOS_CONFIGURATION_FILE,
             ],
@@ -160,6 +162,7 @@ class IntegrationTest(TestCase):
                 self.assertIn("releases_delete_total {}".format(deleted), metrics)
                 self.assertIn("releases_update_total {}".format(updated), metrics)
                 return
+
         raise AssertionError("Failed to see the expected number of events. {}".format(metrics))
 
     def __wait_for_lostromos_start(self):

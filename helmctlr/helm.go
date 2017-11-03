@@ -62,7 +62,6 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	}
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
-
 }
 
 // ResourceDeleted is called when a custom resource is created and will use

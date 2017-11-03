@@ -28,27 +28,23 @@ import (
 
 func TestGetKubeClientDefaultsToConfigFileWhenNotInCluster(t *testing.T) {
 	viper.Set("k8s.config", path.Join("..", "test-data", "kubeconfig"))
-	cfg := getKubeClient()
+	cfg, _ := getKubeClient()
 	assert.NotNil(t, cfg)
 	assert.Equal(t, "https://localhost:8443", cfg.Host)
 }
 
 func TestGetKubeClientForKubeConfigFailsWhenFileNotFound(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-
 	viper.Set("k8s.config", "/i-dont-exist/kubeconf")
-	cfg := getKubeClient()
+	cfg, err := getKubeClient()
 	assert.Nil(t, cfg)
+	assert.NotNil(t, err)
 }
 
 func TestGetKubeClientForKubeConfigReturnsWhenFileExists(t *testing.T) {
 	viper.Set("k8s.config", path.Join("..", "test-data", "kubeconfig"))
-	cfg := getKubeClient()
+	cfg, err := getKubeClient()
 	assert.NotNil(t, cfg)
+	assert.Nil(t, err)
 	// This value is from the test-data/kubeconfig file
 	assert.Equal(t, "https://localhost:8443", cfg.Host)
 }
@@ -64,8 +60,9 @@ func TestBuildCRWatcherReturnsProperlyConfiguredWatcher(t *testing.T) {
 	viper.Set("crd.version", crdVersion)
 
 	kubeCfg := &restclient.Config{}
-	crw := buildCRWatcher(kubeCfg)
+	crw, err := buildCRWatcher(kubeCfg)
 	assert.NotNil(t, crw)
+	assert.Nil(t, err)
 	assert.Equal(t, crdGroup, crw.Config.Group)
 	assert.Equal(t, crdName, crw.Config.PluralName)
 	assert.Equal(t, crdNamespace, crw.Config.Namespace)

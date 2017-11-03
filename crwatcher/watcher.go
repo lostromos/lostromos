@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	restclient "k8s.io/client-go/rest"
@@ -44,6 +45,7 @@ type CRWatcher struct {
 	handler    cache.ResourceEventHandlerFuncs
 	store      cache.Store
 	controller cache.Controller
+	logger     ErrorLogger
 }
 
 // ResourceController exposes the functionality of a controller that
@@ -67,10 +69,16 @@ type ResourceController interface {
 	ResourceDeleted(resource *unstructured.Unstructured)
 }
 
+// ErrorLogger will receive any error messages from the kubernetes client
+type ErrorLogger interface {
+	Error(err error)
+}
+
 // NewCRWatcher builds a CRWatcher
-func NewCRWatcher(cfg *Config, kubeCfg *restclient.Config, rc ResourceController) (*CRWatcher, error) {
+func NewCRWatcher(cfg *Config, kubeCfg *restclient.Config, rc ResourceController, l ErrorLogger) (*CRWatcher, error) {
 	cw := &CRWatcher{
 		Config: cfg,
+		logger: l,
 	}
 
 	kubeCfg.ContentConfig.GroupVersion = &schema.GroupVersion{
@@ -86,7 +94,20 @@ func NewCRWatcher(cfg *Config, kubeCfg *restclient.Config, rc ResourceController
 	cw.setupResource(dc)
 	cw.setupHandler(rc)
 	cw.setupController()
+	cw.setupRuntimeLogging()
 	return cw, nil
+}
+
+func (cw *CRWatcher) setupRuntimeLogging() {
+	if cw.logger != nil {
+		utilruntime.ErrorHandlers = []func(error){
+			cw.logKubeError,
+		}
+	}
+}
+
+func (cw *CRWatcher) logKubeError(err error) {
+	cw.logger.Error(err)
 }
 
 func (cw *CRWatcher) setupHandler(con ResourceController) {

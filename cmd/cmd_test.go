@@ -12,16 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package cmd
 
-import "go.uber.org/zap"
+import (
+	"testing"
 
-func ExamplePrint() {
-	Version = "1"
-	GitHash = "abc123"
-	BuildTime = "Some point in time"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+)
 
-	Print(zap.NewExample().Sugar())
-	// Output:
-	// {"level":"info","msg":"version info","version":"1","gitCommitHash":"abc123","buildTime":"Some point in time"}
+func TestSetupLogger(t *testing.T) {
+	viper.Set("debug", false)
+	setupLogging()
+	assert.Equal(t, false, logger.Desugar().Core().Enabled(zap.DebugLevel), "debug logging should be false")
+
+	viper.Set("debug", true)
+	setupLogging()
+	assert.Equal(t, true, logger.Desugar().Core().Enabled(zap.DebugLevel), "debug logging should be true")
 }

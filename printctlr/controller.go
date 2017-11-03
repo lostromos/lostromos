@@ -17,6 +17,7 @@ package printctlr
 import (
 	"fmt"
 
+	"github.com/wpengine/lostromos/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -30,16 +31,24 @@ type Controller struct{}
 // print that the CR was added
 func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	fmt.Printf("CR added: %s\n", r.GetName())
+	metrics.CreatedReleases.Inc()
+	metrics.ManagedReleases.Inc()
+	metrics.TotalEvents.Inc()
 }
 
 // ResourceUpdated receives both an the old version and current version of a
 // custom resource and will print out the the custom resource was changed
 func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	fmt.Printf("CR changed: %s\n", newR.GetName())
+	metrics.UpdatedReleases.Inc()
+	metrics.TotalEvents.Inc()
 }
 
 // ResourceDeleted will receive a custom resource when it is deleted and
 // print that the CR was deleted
 func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	fmt.Printf("CR deleted: %s\n", r.GetName())
+	metrics.DeletedReleases.Inc()
+	metrics.ManagedReleases.Dec()
+	metrics.TotalEvents.Inc()
 }
