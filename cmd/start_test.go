@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
+	"github.com/wpengine/lostromos/helmctlr"
+	"github.com/wpengine/lostromos/tmplctlr"
 
 	"github.com/stretchr/testify/assert"
 	restclient "k8s.io/client-go/rest"
@@ -68,4 +70,34 @@ func TestBuildCRWatcherReturnsProperlyConfiguredWatcher(t *testing.T) {
 	assert.Equal(t, crdName, crw.Config.PluralName)
 	assert.Equal(t, crdNamespace, crw.Config.Namespace)
 	assert.Equal(t, crdVersion, crw.Config.Version)
+}
+
+func TestGetControllerReturnsHelmController(t *testing.T) {
+	chart := "/path/chart"
+	ns := "lostromos"
+	prefix := "lost"
+	tiller := "1.2.3.4:4321"
+	viper.Set("helm.chart", chart)
+	viper.Set("helm.namespace", ns)
+	viper.Set("helm.releasePrefix", prefix)
+	viper.Set("helm.tiller", tiller)
+
+	ctlr := getController().(*helmctlr.Controller)
+
+	assert.NotNil(t, ctlr)
+	assert.Equal(t, ctlr.ChartDir, chart)
+	assert.Equal(t, ctlr.Namespace, ns)
+	assert.Equal(t, ctlr.ReleaseName, prefix)
+}
+
+func TestGetControllerReturnsTemplateController(t *testing.T) {
+	templates := "/path/templates"
+	kubecfg := "/path/kubeconf"
+	viper.Set("templates", templates)
+	viper.Set("k8s.config", kubecfg)
+	viper.Set("helm.chart", "")
+
+	ctlr := getController().(*tmplctlr.Controller)
+
+	assert.NotNil(t, ctlr)
 }
