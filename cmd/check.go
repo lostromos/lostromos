@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -39,7 +38,7 @@ var checkCmd = &cobra.Command{
 	Run: func(command *cobra.Command, args []string) {
 		err := check(os.Stdout)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorw("failed", "error", err)
 			os.Exit(1)
 		}
 	},

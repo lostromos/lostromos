@@ -15,12 +15,12 @@
 package tmplctlr
 
 import (
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
 	"github.com/wpengine/lostromos/metrics"
 	"github.com/wpengine/lostromos/tmpl"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -29,13 +29,19 @@ import (
 type Controller struct {
 	templatePath string     //path to dir where templates are located
 	Client       KubeClient //client for talking with kubernetes
+	logger       *zap.SugaredLogger
 }
 
 // NewController will return a configured Controller
-func NewController(tmplDir string, kubeCfg string) *Controller {
+func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger) *Controller {
+	if logger == nil {
+		// If you don't give us a logger, set logger to a nop logger
+		logger = zap.NewNop().Sugar()
+	}
 	c := &Controller{
 		Client:       &Kubectl{ConfigFile: kubeCfg},
 		templatePath: filepath.Join(tmplDir, "*.tmpl"),
+		logger:       logger,
 	}
 	return c
 }
@@ -43,20 +49,20 @@ func NewController(tmplDir string, kubeCfg string) *Controller {
 // ResourceAdded is called when a custom resource is created and will generate
 // the template files and apply them to Kubernetes
 func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
-	fmt.Printf("INFO: resource added, cr: %s\n", r.GetName())
+	metrics.TotalEvents.Inc()
+	c.logger.Infow("resource added", "resource", r.GetName())
 	c.apply(r)
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
-	metrics.TotalEvents.Inc()
 }
 
 // ResourceUpdated is called when a custom resource is updated or during a
 // resync and will generate the template files and apply them to Kubernetes
 func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
-	fmt.Printf("INFO: resource updated, cr: %s\n", newR.GetName())
+	metrics.TotalEvents.Inc()
+	c.logger.Infow("resource updated", "resource", newR.GetName())
 	c.apply(newR)
 	metrics.UpdatedReleases.Inc()
-	metrics.TotalEvents.Inc()
 }
 
 func (c Controller) apply(r *unstructured.Unstructured) {
@@ -65,50 +71,50 @@ func (c Controller) apply(r *unstructured.Unstructured) {
 	}
 	tmpFile, err := ioutil.TempFile("", "lostromos")
 	if err != nil {
-		fmt.Printf("ERROR: failed to get tmp file error: %s\n", err)
+		c.logger.Errorw("failed to get tmp file", "error", err)
 		return
 	}
 	err = tmpl.Parse(cr, c.templatePath, tmpFile)
 	if err != nil {
-		fmt.Printf("ERROR: failed to generate template error: %s\n", err)
+		c.logger.Errorw("failed to generate template error", "error", err)
 		return
 	}
 	out, err := c.Client.Apply(tmpFile.Name())
 	if err != nil {
-		fmt.Printf("ERROR: failed to apply template error: %s - [ %s ]\n", err, out)
-		fmt.Printf("DEBUG: template to apply: \n%s", readFile(tmpFile.Name()))
+		c.logger.Errorw("failed to apply template", "error", err, "result", out)
+		c.logger.Debugw("template we want to apply", "template", readFile(tmpFile.Name()), "fileName", tmpFile.Name())
 		return
 	}
-	fmt.Printf("DEBUG: applied Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
+	c.logger.Debugw("applied Kubernetes objects", "resource", r.GetName(), "result", out)
 }
 
 // ResourceDeleted is called when a custom resource is created and will generate
 // the template files and delete them from Kubernetes
 func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
+	metrics.TotalEvents.Inc()
+	c.logger.Infow("resource deleted", "resource", r.GetName())
 	cr := &tmpl.CustomResource{
 		Resource: r,
 	}
-	fmt.Printf("INFO: resource deleted, cr: %s\n", r.GetName())
 	tmpFile, err := ioutil.TempFile("", "lostromos")
 	if err != nil {
-		fmt.Printf("ERROR: failed to get tmp file error: %s\n", err)
+		c.logger.Errorw("failed to get tmp file", "error", err)
 		return
 	}
 	err = tmpl.Parse(cr, c.templatePath, tmpFile)
 	if err != nil {
-		fmt.Printf("ERROR: failed to generate template error: %s\n", err)
+		c.logger.Errorw("failed to generate template error", "error", err)
 		return
 	}
 	out, err := c.Client.Delete(tmpFile.Name())
 	if err != nil {
-		fmt.Printf("ERROR: failed to delete template error: %s - [ %s ]\n", err, out)
-		fmt.Printf("DEBUG: template to delete: \n%s", readFile(tmpFile.Name()))
+		c.logger.Errorw("failed to delete template", "error", err, "result", out)
+		c.logger.Debugw("template we want to delete", "template", readFile(tmpFile.Name()), "fileName", tmpFile.Name())
 		return
 	}
-	fmt.Printf("DEBUG: deleted Kubernetes objects, cr: %s results: %s\n", r.GetName(), out)
+	c.logger.Debugw("deleted Kubernetes objects", "resource", r.GetName(), "result", out)
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
-	metrics.TotalEvents.Inc()
 }
 
 func readFile(filepath string) string {

@@ -25,8 +25,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wpengine/lostromos/crwatcher"
 	"github.com/wpengine/lostromos/helmctlr"
+	"github.com/wpengine/lostromos/printctlr"
 	"github.com/wpengine/lostromos/status"
 	"github.com/wpengine/lostromos/tmplctlr"
+	"github.com/wpengine/lostromos/version"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
@@ -37,7 +40,9 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: `Start the server.`,
 	Run: func(command *cobra.Command, args []string) {
-		startServer()
+		if err := startServer(); err != nil {
+			logger.Errorw("failed to start server", "error", err)
+		}
 	},
 }
 
@@ -53,6 +58,7 @@ func init() {
 	startCmd.Flags().String("helm-prefix", "lostromos", "Prefix for release names in helm")
 	startCmd.Flags().String("helm-tiller", "tiller-deploy:44134", "Address for helm tiller")
 	startCmd.Flags().String("kube-config", filepath.Join(homeDir(), ".kube", "config"), "absolute path to the kubeconfig file. Only required if running outside-of-cluster.")
+	startCmd.Flags().Bool("nop", false, "nop")
 	startCmd.Flags().String("server-address", ":8080", "The address and port for endpoints such as /metrics and /status")
 	startCmd.Flags().String("metrics-endpoint", "/metrics", "The URI for the metrics endpoint")
 	startCmd.Flags().String("status-endpoint", "/status", "The URI for the status endpoint")
@@ -67,6 +73,7 @@ func init() {
 	viperBindFlag("helm.releasePrefix", startCmd.Flags().Lookup("helm-prefix"))
 	viperBindFlag("helm.tiller", startCmd.Flags().Lookup("helm-tiller"))
 	viperBindFlag("k8s.config", startCmd.Flags().Lookup("kube-config"))
+	viperBindFlag("nop", startCmd.Flags().Lookup("nop"))
 	viperBindFlag("server.address", startCmd.Flags().Lookup("server-address"))
 	viperBindFlag("server.metrics_endpoint", startCmd.Flags().Lookup("metrics-endpoint"))
 	viperBindFlag("server.status_endpoint", startCmd.Flags().Lookup("status-endpoint"))
@@ -81,7 +88,7 @@ func homeDir() string {
 	return home
 }
 
-func getKubeClient() *restclient.Config {
+func getKubeClient() (*restclient.Config, error) {
 	var (
 		cfg *restclient.Config
 		err error
@@ -90,47 +97,57 @@ func getKubeClient() *restclient.Config {
 	cfg, err = restclient.InClusterConfig()
 	if err == nil {
 		viper.Set("k8s.config", "")
-		return cfg
+		return cfg, err
 	}
 
-	cfg, err = clientcmd.BuildConfigFromFlags("", viper.GetString("k8s.config"))
-	if err != nil {
-		panic(err)
-	}
-	return cfg
+	return clientcmd.BuildConfigFromFlags("", viper.GetString("k8s.config"))
 }
 
-func buildCRWatcher(cfg *restclient.Config) *crwatcher.CRWatcher {
+func buildCRWatcher(cfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 	cwCfg := &crwatcher.Config{
 		PluralName: viper.GetString("crd.name"),
 		Group:      viper.GetString("crd.group"),
 		Version:    viper.GetString("crd.version"),
 		Namespace:  viper.GetString("crd.namespace"),
 	}
-
 	ctlr := getController()
-
-	crw, err := crwatcher.NewCRWatcher(cwCfg, cfg, ctlr)
-	if err != nil {
-		panic(err.Error())
-	}
-	return crw
+	l := &crLogger{logger: logger}
+	return crwatcher.NewCRWatcher(cwCfg, cfg, ctlr, l)
 }
 
 func getController() crwatcher.ResourceController {
+	if viper.GetBool("nop") {
+		return &printctlr.Controller{}
+	}
 	if viper.GetString("helm.chart") != "" {
 		chrt := viper.GetString("helm.chart")
 		hns := viper.GetString("helm.namespace")
 		hrn := viper.GetString("helm.releasePrefix")
 		ht := viper.GetString("helm.tiller")
-		return helmctlr.NewController(chrt, hns, hrn, ht, nil)
+		return helmctlr.NewController(chrt, hns, hrn, ht, logger)
 	}
-	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"))
+	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"), logger)
 }
 
-func startServer() {
-	cfg := getKubeClient()
-	crw := buildCRWatcher(cfg)
+type crLogger struct {
+	logger *zap.SugaredLogger
+}
+
+func (c crLogger) Error(err error) {
+	c.logger.Errorw("kubernetes error", "error", err)
+}
+
+func startServer() error {
+	version.Print(logger)
+
+	cfg, err := getKubeClient()
+	if err != nil {
+		return err
+	}
+	crw, err := buildCRWatcher(cfg)
+	if err != nil {
+		return err
+	}
 
 	// Set up Prometheus and Status endpoints.
 	http.Handle(viper.GetString("server.metrics_endpoint"), promhttp.Handler())
@@ -142,8 +159,5 @@ func startServer() {
 		}
 	}()
 
-	err := crw.Watch(wait.NeverStop)
-	if err != nil {
-		panic(err.Error())
-	}
+	return crw.Watch(wait.NeverStop)
 }

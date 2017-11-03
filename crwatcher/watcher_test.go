@@ -15,6 +15,8 @@
 package crwatcher
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -25,11 +27,23 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
+type logResult struct {
+	msg string
+}
+
+type testLogger struct {
+	res *logResult
+}
+
+func (c testLogger) Error(err error) {
+	c.res.msg = fmt.Sprintf("error: %s", err)
+}
+
 func TestNewCRWatcher(t *testing.T) {
 	kubeCfg := &restclient.Config{}
 	cfg := &Config{PluralName: "test"}
 
-	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{})
+	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{}, testLogger{})
 
 	assert.Nil(t, err)
 	assert.Equal(t, cfg, cw.Config)
@@ -37,6 +51,20 @@ func TestNewCRWatcher(t *testing.T) {
 	assert.NotNil(t, cw.handler)
 	assert.NotNil(t, cw.store)
 	assert.NotNil(t, cw.controller)
+	assert.NotNil(t, cw.logger)
+}
+
+func TestLogKubeError(t *testing.T) {
+	kubeCfg := &restclient.Config{}
+	cfg := &Config{PluralName: "test"}
+	res := &logResult{}
+	lgr := &testLogger{res: res}
+	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{}, lgr)
+	assert.Nil(t, err)
+	assert.NotNil(t, cw.logger)
+
+	cw.logKubeError(errors.New("test"))
+	assert.Equal(t, "error: test", lgr.res.msg)
 }
 
 func TestSetupHandlerAddFunc(t *testing.T) {

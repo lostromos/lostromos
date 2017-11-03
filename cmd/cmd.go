@@ -21,9 +21,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
-var cfgFile string
+var (
+	cfgFile string
+	logger  *zap.SugaredLogger
+)
 
 // LostromosCmd represents the base command when called without any subcommands
 var LostromosCmd = &cobra.Command{
@@ -48,7 +52,7 @@ func init() {
 	LostromosCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is /etc/lostromos.yaml)")
 	LostromosCmd.PersistentFlags().BoolP("debug", "", false, "enable debug logging")
 
-	LostromosCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	viperBindFlag("debug", LostromosCmd.PersistentFlags().Lookup("debug"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -65,9 +69,12 @@ func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	err := viper.ReadInConfig()
+	setupLogging()
+	if err != nil {
+		logger.Debugw("failed to read config file", "error", err)
 	}
+	logger.Infow("loading config...", "configFile", viper.ConfigFileUsed())
 }
 
 func viperBindFlag(name string, flag *pflag.Flag) {
@@ -75,4 +82,23 @@ func viperBindFlag(name string, flag *pflag.Flag) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func setupLogging() {
+	cfg := zap.NewProductionConfig()
+
+	if viper.GetBool("debug") {
+		cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	}
+
+	l, err := cfg.Build()
+	if err != nil {
+		panic(err)
+	}
+	logger = l.Sugar()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			logger.Errorw("failed to sync logger", "error", err)
+		}
+	}()
 }

@@ -27,6 +27,6 @@ var commandDefinition = &cobra.Command{
 	Use:   "version",
 	Short: `Show the version number.`,
 	Run: func(command *cobra.Command, args []string) {
-		version.Print()
+		version.Print(logger)
 	},
 }
