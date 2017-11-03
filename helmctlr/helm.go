@@ -24,12 +24,14 @@ import (
 	"k8s.io/helm/pkg/helm"
 )
 
+var defaultNS = "default"
+
 // Controller is a crwatcher.ResourceController that works with Helm to deploy
 // helm charts into K8s providing a CustomResource as value data to the charts
 type Controller struct {
 	ChartDir    string         // path to dir where the Helm chart is located
 	Helm        helm.Interface // Helm for talking with helm
-	Namespace   string         // Default namespace to deploy into. If empty it will try to use the namespace from the CustomResource
+	Namespace   string         // Default namespace to deploy into. If empty it will default to "default"
 	ReleaseName string         // Prefix for the helm release name. Will look like ReleaseName-CR_Name
 	logger      *zap.SugaredLogger
 }
@@ -39,6 +41,9 @@ func NewController(chartDir, ns, rn, host string, logger *zap.SugaredLogger) *Co
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
+	}
+	if ns == "" {
+		ns = defaultNS
 	}
 	c := &Controller{
 		Helm:        helm.NewClient(helm.Host(host)),
