@@ -109,6 +109,16 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
 }
 
+func TestNewControllerSetsNS(t *testing.T) {
+	c := helmctlr.NewController("chartDir", "", "release", "127.0.0.3:4321", nil)
+	assert.Equal(t, "default", c.Namespace, "Namespace should be set to 'default' when not provided")
+	assert.Equal(t, "chartDir", c.ChartDir)
+	assert.Equal(t, "release", c.ReleaseName)
+
+	c = helmctlr.NewController("chartDir", "my_ns", "release", "127.0.0.3:4321", nil)
+	assert.Equal(t, "my_ns", c.Namespace, "Namespace should be set to the value provided")
+}
+
 func TestResourceAddedHappyPath(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

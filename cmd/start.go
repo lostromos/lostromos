@@ -54,7 +54,7 @@ func init() {
 	startCmd.Flags().String("crd-version", "v1", "the version of the CRD you want monitored")
 	startCmd.Flags().String("crd-namespace", metav1.NamespaceNone, "(optional) the namespace of the CRD you want monitored, only needed for namespaced CRDs (ex: default)")
 	startCmd.Flags().String("helm-chart", "", "Path for helm chart")
-	startCmd.Flags().String("helm-ns", "", "Namespace for resources deployed by helm")
+	startCmd.Flags().String("helm-ns", "default", "Namespace for resources deployed by helm")
 	startCmd.Flags().String("helm-prefix", "lostromos", "Prefix for release names in helm")
 	startCmd.Flags().String("helm-tiller", "tiller-deploy:44134", "Address for helm tiller")
 	startCmd.Flags().String("kube-config", filepath.Join(homeDir(), ".kube", "config"), "absolute path to the kubeconfig file. Only required if running outside-of-cluster.")
