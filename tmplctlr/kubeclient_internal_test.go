@@ -23,17 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type kubePrint struct {
-}
-
-func (k kubePrint) Apply(file string) (string, error) {
-	return "Kube Apply Called", nil
-}
-
-func (k kubePrint) Delete(file string) (string, error) {
-	return "Kube Delete Called", nil
-}
-
 func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	cs := []string{"-test.run=TestHelperProcess", "--", command}
 	cs = append(cs, args...)

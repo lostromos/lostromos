@@ -68,14 +68,14 @@ func getPromGaugeValue(metric string) float64 {
 // Used in assertCounters to mark the expected change in counters
 // values default to 0 so you only have to specify the changes
 type counterTest struct {
-	create     int
-	create_err int
-	delete     int
-	delete_err int
-	update     int
-	update_err int
-	events     int
-	releases   int
+	create    int
+	createErr int
+	delete    int
+	deleteErr int
+	update    int
+	updateErr int
+	events    int
+	releases  int
 }
 
 func assertCounters(t *testing.T, c counterTest, f func()) {
@@ -100,11 +100,11 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 	ea := getPromCounterValue("releases_events_total")
 	ra := getPromGaugeValue("releases_total")
 	assert.Equal(t, float64(c.create), csa-csb, "change in releases_create_total incorrect")
-	assert.Equal(t, float64(c.create_err), cea-ceb, "change in releases_create_error_total incorrect")
+	assert.Equal(t, float64(c.createErr), cea-ceb, "change in releases_create_error_total incorrect")
 	assert.Equal(t, float64(c.delete), dsa-dsb, "change in releases_delete_total incorrect")
-	assert.Equal(t, float64(c.delete_err), dea-deb, "change in releases_delete_error_total incorrect")
+	assert.Equal(t, float64(c.deleteErr), dea-deb, "change in releases_delete_error_total incorrect")
 	assert.Equal(t, float64(c.update), usa-usb, "change in releases_update_total incorrect")
-	assert.Equal(t, float64(c.update_err), uea-ueb, "change in releases_update_error_total incorrect")
+	assert.Equal(t, float64(c.updateErr), uea-ueb, "change in releases_update_error_total incorrect")
 	assert.Equal(t, float64(c.events), ea-eb, "change in releases_events_total incorrect")
 	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
 }
@@ -198,8 +198,8 @@ func TestResourceAddedInstallErrors(t *testing.T) {
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
 
 	ct := counterTest{
-		events:     1,
-		create_err: 1,
+		events:    1,
+		createErr: 1,
 	}
 	assertCounters(t, ct, func() {
 		testController.ResourceAdded(testResource)
@@ -223,8 +223,8 @@ func TestResourceAddedUpdateErrors(t *testing.T) {
 	opts := []interface{}{gomock.Any()}
 	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
 	ct := counterTest{
-		events:     1,
-		create_err: 1,
+		events:    1,
+		createErr: 1,
 	}
 	assertCounters(t, ct, func() {
 		testController.ResourceAdded(testResource)
@@ -258,8 +258,8 @@ func TestResourceDeletedWhenDeleteFails(t *testing.T) {
 	deleteOpts := []interface{}{gomock.Any()}
 	mockHelm.EXPECT().DeleteRelease(testReleaseName, deleteOpts...).Return(nil, errors.New("delete failed"))
 	ct := counterTest{
-		events:     1,
-		delete_err: 1,
+		events:    1,
+		deleteErr: 1,
 	}
 	assertCounters(t, ct, func() {
 		testController.ResourceDeleted(testResource)
@@ -342,8 +342,8 @@ func TestResourceUpdatedInstallErrors(t *testing.T) {
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
 
 	ct := counterTest{
-		events:     1,
-		update_err: 1,
+		events:    1,
+		updateErr: 1,
 	}
 	assertCounters(t, ct, func() {
 		testController.ResourceUpdated(testResource, testResource)
@@ -367,8 +367,8 @@ func TestResourceUpdatedUpdateErrors(t *testing.T) {
 	opts := []interface{}{gomock.Any()}
 	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
 	ct := counterTest{
-		events:     1,
-		update_err: 1,
+		events:    1,
+		updateErr: 1,
 	}
 	assertCounters(t, ct, func() {
 		testController.ResourceUpdated(testResource, testResource)

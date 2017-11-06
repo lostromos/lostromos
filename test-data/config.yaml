@@ -2,3 +2,6 @@ crd:
   group: stable.nicolerenee.io
   name: characters
 templates: test-data/templates
+logging:
+  debug: true
+  pretty: true
