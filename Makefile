@@ -34,6 +34,13 @@ build:
 	@echo Building...
 	@CGO_ENABLED=0 go build -ldflags "$(LD_FLAGS)" -o lostromos main.go
 
+build-cross: out/lostromos-linux-amd64 out/lostromos-darwin-amd64 out/lostromos-windows-amd64
+
+out/lostromos-%-amd64:
+	@echo Building for $*...
+	@GOOS=$* CGO_ENABLED=0 go build -ldflags "$(LD_FLAGS)" -o $@ main.go
+
+.PHONY: test
 test: | vendor
 	@echo Testing...
 	@go test ./... -cover
@@ -76,6 +83,7 @@ pull-linters:
 clean:
 	@echo Cleaning...
 	@rm -rf ./vendor/
+	@rm -rf ./out/
 
 docker-build-test:
 	docker build -t lostromos:test -f test/docker/Dockerfile .

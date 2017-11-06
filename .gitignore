@@ -17,6 +17,7 @@ vendor
 
 # Ignore build
 lostromos
+out/
 
 # JetBrains IDE files
 .idea

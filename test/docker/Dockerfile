@@ -12,6 +12,6 @@ RUN chmod +x /usr/bin/kubectl
 
 # Setup the Lostromos binary.
 EXPOSE 8080
-ADD ./lostromos /
+ADD ./out/lostromos-linux-amd64 /lostromos
 COPY ./test/data /test/data
 ENTRYPOINT ["/lostromos"]
