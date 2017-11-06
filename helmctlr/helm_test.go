@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	testController  = helmctlr.NewController("../test-data/chart", "lostromos-test", "lostromostest", "0", nil)
+	testController  = helmctlr.NewController("../test/data/chart", "lostromos-test", "lostromostest", "0", nil)
 	testReleaseName = "lostromostest-dory"
 	testResource    = &unstructured.Unstructured{
 		Object: map[string]interface{}{

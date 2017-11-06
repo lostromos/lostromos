@@ -24,10 +24,9 @@ import subprocess
 from time import sleep
 from unittest import TestCase
 
-_LOSTROMOS_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lostromos")
-_TEST_DATA_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test-data")
+_LOSTROMOS_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "lostromos")
+_TEST_DATA_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 _LOSTROMOS_CONFIGURATION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "config.yaml")
-_CUSTOM_RESOURCE_DEFINITION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "crd.yml")
 _THINGS_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things.yml")
 _NEMO_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo.yml")
 _NEMO_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo_update.yml")
@@ -80,20 +79,14 @@ class IntegrationTest(TestCase):
 
     def setUp(self):
         """
-        Do the following steps.
-
-        1. Delete any lingering custom resources.
-        2. Ensure the custom resource definition exists.
-        3. Set up the "things" custom resources.
+        Ensure the custom resource definition exists, and set up the status and metrics url.
         """
         self.__kubectl = Kubectl()
+
+        self.__lostromos_ip_and_port = os.getenv("LOSTROMOS_IP_AND_PORT", "localhost:8080")
         self.__lostromos_process = None
-        self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE)
-        self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE)
-        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINITION_FILE)
-        self.__kubectl.apply(_THINGS_CUSTOM_RESOURCE_FILE)
-        self.__status_url = "http://localhost:8080/status"
-        self.__metrics_url = "http://localhost:8080/metrics"
+        self.__status_url = "http://{}/status".format(self.__lostromos_ip_and_port)
+        self.__metrics_url = "http://{}/metrics".format(self.__lostromos_ip_and_port)
 
     def runTest(self):
         """
@@ -104,21 +97,22 @@ class IntegrationTest(TestCase):
         3. Modify the nemo custom resource and see that Lostromos sees it as updated.
         4. Delete both sets of custom resources and see that Lostromos picks them up as deleted.
         """
-        print("Starting Lostromos")
-        self.__lostromos_process = subprocess.Popen(
-            [
-                _LOSTROMOS_EXE,
-                "start",
-                "--debug",
-                "--nop",
-                "--config",
-                _LOSTROMOS_CONFIGURATION_FILE,
-            ],
-            stdout=subprocess.PIPE
-        )
-        print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
+        if self.__lostromos_ip_and_port == "localhost:8080":
+            print("Starting Lostromos")
+            self.__lostromos_process = subprocess.Popen(
+                [
+                    _LOSTROMOS_EXE,
+                    "start",
+                    "--nop",
+                    "--config",
+                    _LOSTROMOS_CONFIGURATION_FILE,
+                ]
+            )
+            print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
+        print("Querying Lostromos at http://{}".format(self.__lostromos_ip_and_port))
 
         self.__wait_for_lostromos_start()
+        self.__kubectl.apply(_THINGS_CUSTOM_RESOURCE_FILE)
         self.__check_metrics(2, 2, 2, 0, 0)
         self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
         self.__check_metrics(3, 3, 3, 0, 0)

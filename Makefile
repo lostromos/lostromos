@@ -24,6 +24,10 @@ LD_FLAGS      := -s -w -X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Gi
 MARKDOWN_LINTER := wpengine/mdl
 PYTHON_LINTER := wpengine/pylint
 
+OWNER=wpengine
+IMAGE_NAME=lostromos
+QNAME=$(OWNER)/$(IMAGE_NAME)
+
 all: lint test build
 
 build:
@@ -34,13 +38,13 @@ test: | vendor
 	@echo Testing...
 	@go test ./... -cover
 
-integration-tests:
+integration-tests: | build
 	@echo Running integration tests...
-	@nosetests test-scripts/integration_tests.py
+	@nosetests test/scripts/integration_tests.py
 
 coverage: | vendor
 	@echo Generating coverage report...
-	@./test-scripts/coverage.sh
+	@./test/scripts/coverage.sh
 
 lint: golint lint-markdown lint-python
 
@@ -54,7 +58,7 @@ lint-markdown:
 
 lint-python:
 	@echo Linting Python files...
-	@docker run -v `pwd`/test-scripts:/workspace ${PYTHON_LINTER} /workspace
+	@docker run -v `pwd`/test/scripts:/workspace ${PYTHON_LINTER} /workspace
 
 install-deps:
 	go get -u github.com/golang/dep/cmd/dep
@@ -72,4 +76,9 @@ pull-linters:
 clean:
 	@echo Cleaning...
 	@rm -rf ./vendor/
-	@rm -f ./test-scripts/test_output.txt
+
+docker-build-test:
+	docker build -t lostromos:test -f test/docker/Dockerfile .
+	kubectl delete pod,service lostromos && sleep 60 || true
+	kubectl create -f test/data/deploy.yaml
+	kubectl expose pod lostromos --type=LoadBalancer

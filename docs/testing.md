@@ -23,9 +23,14 @@ definition. We test that
 3. Alert when resources are being deleted.
 
 That's a pretty simple set of tests, but we also only allow for create/update/delete, so that is all we need to test.
-To run that testing in Travis we have to set up Minikube via this [script](../test-scripts/install_minikube.sh)
+To run that testing in Travis we have to set up Minikube via this [script](../test/scripts/install_minikube.sh)
 before actually running the integration tests. It should be noted that we need minikube 0.22.3 or above due to a bug in
 0.22.2 and below which caused issues with kubectl interactions.
+
+### Docker Image
+
+Integration testing is run against a hand spun testing image to ensure that we have a working lostromos binary. We will
+push the image as a service in minikube to be able to ping the /metrics and /status urls for use in the tests.
 
 ### Running Integration Tests Locally
 

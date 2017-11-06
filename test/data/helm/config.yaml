@@ -1,7 +1,10 @@
 crd:
   group: stable.nicolerenee.io
   name: characters
-templates: test-data/templates
+helm:
+  chart: test/data/helm/chart
+  namespace: lostromos
+  tiller: 127.0.0.1:44134
 logging:
   debug: true
   pretty: true

@@ -28,7 +28,7 @@ import (
 )
 
 func TestGetKubeClientDefaultsToConfigFileWhenNotInCluster(t *testing.T) {
-	viper.Set("k8s.config", path.Join("..", "test-data", "kubeconfig"))
+	viper.Set("k8s.config", path.Join("..", "test", "data", "kubeconfig"))
 	cfg, _ := getKubeClient()
 	assert.NotNil(t, cfg)
 	assert.Equal(t, "https://localhost:8443", cfg.Host)
@@ -42,11 +42,11 @@ func TestGetKubeClientForKubeConfigFailsWhenFileNotFound(t *testing.T) {
 }
 
 func TestGetKubeClientForKubeConfigReturnsWhenFileExists(t *testing.T) {
-	viper.Set("k8s.config", path.Join("..", "test-data", "kubeconfig"))
+	viper.Set("k8s.config", path.Join("..", "test", "data", "kubeconfig"))
 	cfg, err := getKubeClient()
 	assert.NotNil(t, cfg)
 	assert.Nil(t, err)
-	// This value is from the test-data/kubeconfig file
+	// This value is from the test/data/kubeconfig file
 	assert.Equal(t, "https://localhost:8443", cfg.Host)
 }
 
