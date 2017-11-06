@@ -11,6 +11,11 @@ If you are running inside kubernetes the value for this would look like
 deployment. If you are in a different namespace you would use
 `tiller-deploy.<namespace>:44134`.
 
+## Version
+
+Helm requires the the tiller and the client be running the same version.
+Currently Lostromos uses version v2.7.0 of helm.
+
 ## Running outside the cluster
 
 If you are running outside of the kubernetes cluster access to the tiller is a
