@@ -3,9 +3,6 @@ sudo: required
 go:
 - 1.9.x
 - master
-env:
-- INTEGRATION=true
-- INTEGRATION=false
 services:
 - docker
 matrix:
@@ -40,7 +37,9 @@ deploy:
   api_key:
     secure: DIdFU9uOKwr5mDaSnVuKEIjotod8rSrWvKa3pCDyusM7bEGQ64drdbkhDSCLMk/oX6cFf6v57OoQJMVn3xPL04ou18v5wGT/WxA502yPme5VhkK5+TiRmrmkCPu3T40bI+EXQWaYi4lq9VehBoDiE8tOCvSXbm1RH+4StTQOLgZqRgMvZ4BgyUo0z5kZBTlfiuxUEpkofESHZ8u6jRyv2yCeDpnqJHEkqB2EfPLxc4sYjeqFcExs/BQR1BiUjlz99sCSEdi/hTjwJ2B7gQMPt3BT7LVpOiX0j1Qa5b6VtJrDfMS0gbcBXuczpaAYkofEWR0aYq+VaCKsWEOf1/CnWqbumgwwscU+6SbvEUDQiIN6Oz9nUrvN/Wr/+zIQUgMxtr2+T1hkNFakjdeXZ7Dg0R/O++/LDX3XtqJJ+xh2M4tUr5phTomJwPv0/StJD0sy5n2jRpcLxxjXF7kWMkKoMjW5xqS1eIo1yUS1JfCj5zFXFghIgbsMh30duvgD+/N4h7Y+5zZoxapjevMoCjlu6IN/lhvzKopI0ZGHRsUEE9SFPaFthwwj3Aqn3SkyqeiH/CzSyREahnSTiPNuyPpdY3rHi8JcU4IzAzOIwJ2v8timzI8gg9N3KmOMWfLYoVs7c1WDWnb0Nv/Vvu1C/RKPaG5Iabzn+rLMYjWNWJ5ivbs=
   file_glob: true
-  file: out/lostromos-*-amd64
+  file: out/lostromos-*
+  skip_cleanup: true
   on:
     repo: wpengine/lostromos
     tags: true
+    go: 1.9.x
