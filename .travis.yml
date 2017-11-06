@@ -42,4 +42,4 @@ deploy:
   on:
     repo: wpengine/lostromos
     tags: true
-    go: 1.9.x
+    condition: $TRAVIS_GO_VERSION =~ ^1\.9\.[0-9]+$
