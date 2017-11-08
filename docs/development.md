@@ -3,12 +3,22 @@
 In order to do development locally, you should have the version of Golang supported by this project, and follow the
 given instructions to setup your environment.
 
+## Make Dependency Targets
+
+We have several make targets that have dependencies we don't force as part of the build since they are slow, and only
+need to be run once, or at worst rarely. For instance `install-deps` is technically a dependency of the `build` target,
+but you probably don't want to have to run it before every `make build` since you will already have all the dependencies
+and running the target will just add several seconds to your build for no gain. Instead we have decided to limit
+dependencies in cases where updates are infrequent. That is why you won't see `install-deps` as a dependency, but will
+see `build` as a dependency in some cases. For that reason you should make sure you are calling `make install-deps` and
+`make vendor` before doing anything so that you can have a proper environment for the rest of development.
+
 ## Install Deps
 
 By running `make install-deps` you should be able to get a setup locally to do anything related to this project.
-Anything go related will install to your GOPATH, and anything else will have a docker image used to perform tasks.
-Docker is a requirement for working with this project as well as Golang. You can also set up your vendor directory by
-running `make vendor`.
+You can also set up your vendor directory by running `make vendor`. Anything go related will install to your GOPATH, and
+anything else will have a docker image used to perform tasks. Docker is a requirement for working with this project as
+well as Golang.
 
 ## Git Hooks
 
