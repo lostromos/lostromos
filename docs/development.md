@@ -1,24 +1,25 @@
 # Development
 
-In order to do development locally, you should have the version of Golang supported by this project, and follow the
-given instructions to setup your environment.
+## Dependencies
+
+1. Golang 1.9.x
+2. Minikube >0.22.3
+3. Docker
+4. Python3
 
 ## Make Dependency Targets
 
-We have several make targets that have dependencies we don't force as part of the build since they are slow, and only
-need to be run once, or at worst rarely. For instance `install-deps` is technically a dependency of the `build` target,
-but you probably don't want to have to run it before every `make build` since you will already have all the dependencies
-and running the target will just add several seconds to your build for no gain. Instead we have decided to limit
-dependencies in cases where updates are infrequent. That is why you won't see `install-deps` as a dependency, but will
-see `build` as a dependency in some cases. For that reason you should make sure you are calling `make install-deps` and
-`make vendor` before doing anything so that you can have a proper environment for the rest of development.
+Some make targets explicitly leave off dependencies as part of the build since they are slow. For instance targets like
+`install-go-deps` only needs to be run once when setting up the project. `install-go-deps` is technically a dependency
+of the `build` target, but you probably don't want to have to run it before every `make build` since you will already
+have all the dependencies and running the target will just add several seconds to your build for no gain. Instead run
+this when you first start on the project/a new PR
 
-## Install Deps
-
-By running `make install-deps` you should be able to get a setup locally to do anything related to this project.
-You can also set up your vendor directory by running `make vendor`. Anything go related will install to your GOPATH, and
-anything else will have a docker image used to perform tasks. Docker is a requirement for working with this project as
-well as Golang.
+```bash
+make install-go-deps
+make vendor
+make install-python-deps
+```
 
 ## Git Hooks
 
@@ -35,22 +36,22 @@ following steps.
 2. `kubectl apply -f test/data/crd.yml`
 3. `kubectl apply -f test/data/cr_things.yml`
 4. `go run main.go start --config test/data/config.yaml`
-    - See that it prints out that `thing1` and `thing2` were added
+  - See that it prints out that `thing1` and `thing2` were added
 5. In another shell `kubectl apply -f test/data/cr_nemo.yml`
-    - See that it prints out that `nemo` was added
+  - See that it prints out that `nemo` was added
 6. `kubectl edit character nemo` and change a field
-    - See that it prints out that `nemo` was changed
+  - See that it prints out that `nemo` was changed
 7. `kubectl delete -f test/data/cr_nemo.yml`
-    - See that it prints out that `nemo` was deleted
+  - See that it prints out that `nemo` was deleted
 8. `kubectl delete -f test/data/cr_things.yml`
-    - See that it prints out that `thing1` and `thing2` were deleted
-9. That's it. You can stop the process and `kubectl delete -f test/data/crd.yml` to cleanup the rest of the test data.
+  - See that it prints out that `thing1` and `thing2` were deleted
+9. You can stop the process and `kubectl delete -f test/data/crd.yml` to cleanup the rest of the test data.
 
 This also happens to be what we do in the [Integration Tests](./../test/scripts/integration-tests.sh) to ensure we are
 working as expected after every build. Checkout our [Testing](./testing.md) documentation for more information on that
 script as well as unit tests.
 
-## Using the Docker Image
+## Using the Test Docker Image
 
 If you are trying to run testing on the docker image, the easy way to link your minikube context with the image is to
 run `eval $(minikube docker-env)` and build the test image found [here](../test/docker/Dockerfile). You might want to
