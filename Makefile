@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+.PHONY: test
+
 APP           := lostromos
 PKG           := github.com/wpengine/lostromos
 
@@ -28,7 +30,7 @@ OWNER=wpengine
 IMAGE_NAME=lostromos
 QNAME=$(OWNER)/$(IMAGE_NAME)
 
-all: lint test build
+all: install-deps lint test build
 
 build:
 	@echo Building...
@@ -40,7 +42,6 @@ out/lostromos-%-amd64:
 	@echo Building for $*...
 	@GOOS=$* CGO_ENABLED=0 go build -ldflags "$(LD_FLAGS)" -o $@ main.go
 
-.PHONY: test
 test: | vendor
 	@echo Testing...
 	@go test ./... -cover
