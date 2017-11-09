@@ -22,6 +22,36 @@ details are:
 Its configuration could also include shared values to use in the templating (eg.
 docker image in deployments, a common annotation or label).
 
+## Dependencies
+
+| Dependency | Version |
+| ---------- | ------- |
+| `Golang` | 1.9.0+ |
+| `Minikube` | 0.22.3+ |
+| `Docker` | 17.09.0+ |
+| `Python` | 3.0+ |
+
+## Quick Start
+
+**NOTE**: This assumes you have all of the above dependency requirements.
+
+Run the following script (changing out os_version for darwin/linux/windows depending on your system) to get a basic
+setup.
+
+```bash
+make install-go-deps
+make vendor
+make install-python-deps
+make build-cross
+./out/lostromos-os_version-amd64 version
+minikube start
+eval $(minikube docker-env)
+make docker-build-test
+kubectl create -f test/data/crd.yml
+make LOSTROMOS_IP_AND_PORT=`minikube service lostromos --url | cut -c 8-` integration-tests
+eval $(minikube docker-env -u)
+```
+
 ## Getting Started
 
 - [Development](./docs/development.md)
