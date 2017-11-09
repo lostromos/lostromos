@@ -1,12 +1,5 @@
 # Development
 
-## Dependencies
-
-1. Golang 1.9.x
-2. Minikube >0.22.3
-3. Docker
-4. Python3
-
 ## Make Dependency Targets
 
 Some make targets explicitly leave off dependencies as part of the build since they are slow. For instance targets like
