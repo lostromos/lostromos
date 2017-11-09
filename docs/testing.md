@@ -3,8 +3,9 @@
 ## Unit Testing
 
 This codebase is expected to be highly tested via unit testing. New functionality should have a unit test if at all
-possible, and if not possible that should be explained in the original PR if nothing else. Before doing a PR, it's
-suggested you at least run `make test` to ensure no unit tests have started to fail.
+possible, and if not possible that should be explained in the original PR. We may ask you to rewrite the code so that it
+is testable, and PRs without tests are more likely to be rejected. Before submitting a PR, run `make test` to ensure no
+unit tests have started to fail.
 
 ## Code Coverage
 
@@ -22,18 +23,19 @@ definition. We test that
 2. Verify an update has occurred (no processing, just can see it happens).
 3. Alert when resources are being deleted.
 
-That's a pretty simple set of tests, but we also only allow for create/update/delete, so that is all we need to test.
-To run that testing in Travis we have to set up Minikube via this [script](../test/scripts/install_minikube.sh)
-before actually running the integration tests. It should be noted that we need minikube 0.22.3 or above due to a bug in
-0.22.2 and below which caused issues with kubectl interactions.
+These tests cover the create/update/delete use cases that lostromos allows. To run that testing in Travis we have to set
+up Minikube via this [script](../test/scripts/install_minikube.sh) before actually running the integration tests. It
+should be noted that we need minikube 0.22.3 or above due to a bug in 0.22.2 and below which caused issues with kubectl
+interactions.
 
-### Docker Image
+### Testing Docker Image
 
-Integration testing is run against a hand spun testing image to ensure that we have a working lostromos binary. We will
-push the image as a service in minikube to be able to ping the /metrics and /status urls for use in the tests.
+Integration testing is run against a docker image with kubectl 1.7.x and lostromos installed to ensure that we have a
+working lostromos binary. We push the image as a service in minikube to be able to ping the /metrics and /status urls
+for use in the tests.
 
 ### Running Integration Tests Locally
 
 To run integration tests locally you need to run `minikube start` to get a minikube context, and then run
-`make integration-test`. You will need to have installed the necessary requirements by running
-`pip3 install requirements.txt`. Testing is done via a Python module using nosetests.
+`make integration-test`. This is assuming you have installed the necessary python requirements via
+`make install-python-deps`.

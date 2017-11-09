@@ -67,10 +67,13 @@ lint-python:
 	@echo Linting Python files...
 	@docker run -v `pwd`/test/scripts:/workspace ${PYTHON_LINTER} /workspace
 
-install-deps:
+install-go-deps:
 	go get -u github.com/golang/dep/cmd/dep
 	go get -u github.com/alecthomas/gometalinter
 	gometalinter --install
+
+install-python-deps:
+	pip3 install -r requirements.txt
 
 vendor:
 	@echo Vendoring...

@@ -28,7 +28,6 @@ docker image in deployments, a common annotation or label).
 - [Continuous Integration](./docs/continuousIntegration.md)
   - [Testing](./docs/testing.md)
 - [Deployment](./docs/deployment.md)
-- [Working with Lostromos](./docs/workingWithLostromos.md)
 
 ## Contributing
 
