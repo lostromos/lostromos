@@ -24,9 +24,7 @@ definition. We test that
 3. Alert when resources are being deleted.
 
 These tests cover the create/update/delete use cases that lostromos allows. To run that testing in Travis we have to set
-up Minikube via this [script](../test/scripts/install_minikube.sh) before actually running the integration tests. It
-should be noted that we need minikube 0.22.3 or above due to a bug in 0.22.2 and below which caused issues with kubectl
-interactions.
+up Minikube via this [script](../test/scripts/install_minikube.sh) before actually running the integration tests.
 
 ### Testing Docker Image
 

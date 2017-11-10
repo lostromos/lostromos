@@ -1,24 +1,8 @@
 # Development
 
-## Make Dependency Targets
-
-Some make targets explicitly leave off dependencies as part of the build since they are slow. For instance targets like
-`install-go-deps` only needs to be run once when setting up the project. `install-go-deps` is technically a dependency
-of the `build` target, but you probably don't want to have to run it before every `make build` since you will already
-have all the dependencies and running the target will just add several seconds to your build for no gain. Instead run
-this when you first start on the project/a new PR
-
-```bash
-make install-go-deps
-make vendor
-make install-python-deps
-```
-
-## Git Hooks
-
-For an automated way to ensure linting is run before a commit is pushed, you can run `./git-hooks/install` to set up a
-pre-commit hook that will run linting. This isn't a requirement, just a nice to have to find issues before they get to
-Travis.
+This page is meant for more in depth information about doing development on Lostromos. If you came here first, you might
+want to look at the [Quick Start](https://github.com/wpengine/lostromos#quick-start) from the README before going
+further.
 
 ## Testing Locally
 
@@ -40,16 +24,35 @@ following steps.
   - See that it prints out that `thing1` and `thing2` were deleted
 9. You can stop the process and `kubectl delete -f test/data/crd.yml` to cleanup the rest of the test data.
 
-This also happens to be what we do in the [Integration Tests](./../test/scripts/integration-tests.sh) to ensure we are
+This also happens to be what we do in the [Integration Tests](./../test/scripts/integration_tests.py) to ensure we are
 working as expected after every build. Checkout our [Testing](./testing.md) documentation for more information on that
 script as well as unit tests.
+
+## Make Dependency Targets
+
+Some make targets explicitly leave off dependencies as part of the build since they are slow. For instance targets like
+`install-go-deps` only needs to be run once when setting up the project. `install-go-deps` is technically a dependency
+of the `build` target, but you probably don't want to have to run it before every `make build` since you will already
+have all the dependencies and running the target will just add several seconds to your build for no gain. Instead run
+this when you first start on the project/a new PR
+
+```bash
+make install-go-deps
+make vendor
+make install-python-deps
+```
+
+## Git Hooks
+
+For an automated way to ensure linting is run before a commit is pushed, you can run `./git-hooks/install` to set up a
+pre-commit hook that will run linting. This isn't a requirement, just a nice to have to find issues before they get to
+Travis.
 
 ## Using the Test Docker Image
 
 If you are trying to run testing on the docker image, the easy way to link your minikube context with the image is to
-run `eval $(minikube docker-env)` and build the test image found [here](../test/docker/Dockerfile). You might want to
-upgrade to a version of minikube 0.23.0 or above like we do in our integration tests. Once you have an image and a
-Minikube context you should run
+run `eval $(minikube docker-env)` and build the test image found [here](../test/docker/Dockerfile). Once you have an
+image and a Minikube context you should run
 
 ```bash
 kubectl create -f test/data/deploy.yaml
