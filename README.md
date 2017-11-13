@@ -48,6 +48,7 @@ minikube start
 eval $(minikube docker-env) # This links docker with minikube so that the image you build in the next step will be available.
 make docker-build-test
 kubectl create -f test/data/crd.yml
+kubectl expose pod lostromos --type=LoadBalancer
 make LOSTROMOS_IP_AND_PORT=`minikube service lostromos --url | cut -c 8-` integration-tests
 eval $(minikube docker-env -u) # Unlinks minikube and docker.
 ```
