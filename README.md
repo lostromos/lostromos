@@ -5,16 +5,27 @@
 
 **NOTE**: Under active development. Not ready for production usage.
 
-Lostromos is a service that creates Kubernetes resources based on a Custom Resource
-endpoint in the Kubernetes API. It is an implementation of the [Operator
-pattern](https://coreos.com/blog/introducing-operators.html) established by CoreOS.
+## Problem statement
 
-It creates resources using Go templates, using each Custom Resource as the values
-to use during templating. It also watches the CR endpoint for creates, updates,
-and deletes and reconciles the corresponding k8s resources.
+Lostrómos is a way to manage deployments through Custom Resources. This allows a user to harness the power and
+flexibility of the Kubernetes platform to more easily control resources through outside applications.
 
-It is intended to be deployed into a Kubernetes cluster. Its main configuration
-details are:
+WP Engine uses Lostrómos to customize deployments into GKE. As we spin up new clusters, we use another tool to monitor
+the google api for changes and update Custom Resources as they happen. Lostrómos watches for Custom Resources and
+applies a predefined template based on the information received. This allows us to deconstruct a larger service by
+deliniating based on functionality. Our applications now manage resources, and Lostrómos handles the deployments.
+
+## How it works
+
+Lostrómos is a service that creates Kubernetes resources based on a Custom Resource endpoint in the Kubernetes API. It
+is an implementation of the [Operator pattern](https://coreos.com/blog/introducing-operators.html) established by
+CoreOS.
+
+Lostrómos manages objects (pods, sets, jobs - anything that can be managed with a CRD) via Helm or Go templates, using
+values from Custom Resources as new events are captured from the Kubernetes API. It applies templates to the
+corresponding objects to reconcile with Kubernetes.
+
+It is intended to be deployed into a Kubernetes cluster. Its main configuration details are:
 
 - An API endpoint of a Custom Resource Definition to watch
 - A set of go templates to apply for each Custom Resource
@@ -36,7 +47,8 @@ docker image in deployments, a common annotation or label).
 **NOTE**: This assumes you have all of the above dependency requirements.
 
 Run the following script (changing out os_version for darwin/linux/windows depending on your system) to get a basic
-setup.
+setup. This script will install Go and Python dependencies, build Lostrómos, build a docker image with Lostrómos, then
+run it in Minikube and perform integration testing.
 
 ```bash
 make install-go-deps
@@ -53,8 +65,9 @@ make LOSTROMOS_IP_AND_PORT=`minikube service lostromos --url | cut -c 8-` integr
 eval $(minikube docker-env -u) # Unlinks minikube and docker.
 ```
 
-## Getting Started
+## Using Lostrómos
 
+- [Working with Lostrómos](./docs/workingWithLostromos.md)
 - [Development](./docs/development.md)
 - [Continuous Integration](./docs/continuousIntegration.md)
   - [Testing](./docs/testing.md)
@@ -62,7 +75,7 @@ eval $(minikube docker-env -u) # Unlinks minikube and docker.
 
 ## Contributing
 
-See [Contributing](./CONTRIBUTING.md) to get started.
+See [Contribution Guildelines](./CONTRIBUTING.md) to get started.
 
 ## Report a Bug
 
