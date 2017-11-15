@@ -1,6 +1,6 @@
 # Deployment
 
-We don't deploy a docker image with Lostromos, but instead only release the binary to github so that it can be built in
+We don't deploy a docker image with Lostrómos, but instead only release the binary to github so that it can be built in
 to the image you need for your particular application. This is due to the link between kubectl and Lostromos, and it's
 possible the kubectl we intend to use isn't valid for everyones use case. We do build a docker image as part of testing
 that can be thought of as an [example](../test/docker/Dockerfile) however.
