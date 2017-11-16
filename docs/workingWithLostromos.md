@@ -42,7 +42,7 @@ To start working with Lostrómos, you should begin by playing around with some b
 
 See `./lostromos start --help` for more info.
 
-[Sample config file](test/data/config.yaml)
+[Sample config file](../test/data/config.yaml)
 
 ### Templates
 
@@ -53,10 +53,10 @@ Helm as `Values.resource.name`, `Values.resource.namespace`, and `Values.resourc
 
 See documentation on [Using Helm](./helm.md) for more info
 
-[Sample helm template](test/data/helm/chart/templates/deployment.yaml)
+[Sample helm template](../test/data/helm/chart/templates/deployment.yaml)
 
 #### Go Templates
 
 CR fields are accessible to the template by using .GetField
 
-[Sample go template](test/data/templates/deployment.yaml.tmpl)
+[Sample go template](../test/data/templates/deployment.yaml.tmpl)
