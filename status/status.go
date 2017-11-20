@@ -29,7 +29,10 @@ type Response struct {
 // Handler is used for managing calls to /status to inform of the current status of Lostromos.
 func Handler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(writer, jsonResponse())
+	_, err := fmt.Fprint(writer, jsonResponse())
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Create a Json Response to return as the status.
@@ -38,6 +41,9 @@ func jsonResponse() string {
 		Success: true,
 		Info:    "Up and Running!",
 	}
-	bytes, _ := json.Marshal(response)
+	bytes, err := json.Marshal(response)
+	if err != nil {
+		panic(err)
+	}
 	return string(bytes)
 }

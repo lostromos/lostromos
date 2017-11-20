@@ -19,6 +19,7 @@ kubectl.
 
 import os
 import requests
+import signal
 import subprocess
 
 from time import sleep
@@ -27,6 +28,7 @@ from unittest import TestCase
 _LOSTROMOS_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "lostromos")
 _TEST_DATA_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 _LOSTROMOS_CONFIGURATION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "config.yaml")
+_CUSTOM_RESOURCE_DEFINION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "crd.yml")
 _THINGS_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things.yml")
 _NEMO_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo.yml")
 _NEMO_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo_update.yml")
@@ -71,6 +73,54 @@ class Kubectl(object):
         self.__run_command("delete", filepath, raise_error)
 
 
+class Helm(object):
+    """
+    Class used to interact with helm and return data
+    """
+
+    def delete(self, release_name):
+        """
+        Delete a named helm release
+        """
+        subprocess.call(
+            [
+                "helm",
+                "delete",
+                "--purge",
+                release_name
+            ]
+        )
+
+    def init(self):
+        """
+        Run a helm init to ensure there is a working tiller
+        :return:
+        """
+        subprocess.check_call(
+            [
+                "helm",
+                "init"
+            ]
+        )
+
+    def status(self, release_name):
+        """
+        Return the output of helm status
+        :param release_name: The name of the release to get
+        :return: The output of command as bytes
+        """
+        try:
+            output = subprocess.check_output(
+                [
+                    "helm",
+                    "status",
+                    release_name
+                ]
+            )
+            return output
+        except subprocess.CalledProcessError as error:
+            return error.output
+
 class IntegrationTest(TestCase):
     """
     Class used to perform Lostromos integration testing against a minikube environment. Uses kubectl to manipulate the
@@ -82,11 +132,20 @@ class IntegrationTest(TestCase):
         Ensure the custom resource definition exists, and set up the status and metrics url.
         """
         self.__kubectl = Kubectl()
-
+        # Set up the tiller and expose it via a nodeport service
+        self.__helm = Helm()
+        self.__helm.init()
+        self.__kubectl.apply(_TEST_DATA_DIRECTORY + "/tiller_nodeport_service.yml")
+        # Ensure the CRD is there and there are no characters, for a clean starting point
+        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE)
+        self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE)
+        self.__kubectl.delete(_NEMO_UPDATE_CUSTOM_RESOURCE_FILE)
         self.__lostromos_ip_and_port = os.getenv("LOSTROMOS_IP_AND_PORT", "localhost:8080")
         self.__lostromos_process = None
         self.__status_url = "http://{}/status".format(self.__lostromos_ip_and_port)
         self.__metrics_url = "http://{}/metrics".format(self.__lostromos_ip_and_port)
+        self.__minikube_ip = subprocess.check_output(["minikube", "ip"]).strip().decode('utf-8')
 
     def runTest(self):
         """
@@ -98,7 +157,7 @@ class IntegrationTest(TestCase):
         4. Delete both sets of custom resources and see that Lostromos picks them up as deleted.
         """
         if self.__lostromos_ip_and_port == "localhost:8080":
-            print("Starting Lostromos")
+            print("Starting Lostromos with template controller")
             self.__lostromos_process = subprocess.Popen(
                 [
                     _LOSTROMOS_EXE,
@@ -122,13 +181,36 @@ class IntegrationTest(TestCase):
         self.__check_metrics(6, 1, 3, 2, 1)
         self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE, True)
         self.__check_metrics(7, 0, 3, 3, 1)
+        if self.__lostromos_process:
+            self.__lostromos_process.kill()
+
+        print("Starting Lostromos with helm controller")
+        self.__lostromos_process = subprocess.Popen(
+            [
+                _LOSTROMOS_EXE,
+                "start",
+                "--config",
+                _TEST_DATA_DIRECTORY + "/helm/wait-config.yaml",
+                "--helm-tiller",
+                self.__minikube_ip + ":32664",
+            ],
+        )
+        print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
+        # Sleep for a bit until the tiller is available
+        sleep(15)
+        self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
+        self.__wait_for_helm_to_fail(15)
+
+
 
     def tearDown(self):
         """
         Kill the lostromos process if it was created.
         """
+        self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__helm.delete("lostromos-nemo")
         if self.__lostromos_process:
-            self.__lostromos_process.kill()
+            self.__lostromos_process.send_signal(signal.SIGINT)
 
     def __check_metrics(self, events, managed, created, deleted, updated):
         """
@@ -158,6 +240,32 @@ class IntegrationTest(TestCase):
                 return
 
         raise AssertionError("Failed to see the expected number of events. {}".format(metrics))
+
+    def __wait_for_helm_to_fail(self, timeout):
+        """
+        Wait for the helm timeout to be reached and verify the release is marked as failed
+        :return:
+        """
+        seconds_to_sleep = 1
+        # Check that the release wasn't immediately marked as failed or successful
+
+        output = self.__helm.status("lostromos-nemo")
+        self.assertNotIn(
+            "STATUS: FAILED",
+            output.decode("utf-8"),
+            "Helm release is FAILED but did not wait for the timeout"
+        )
+        self.assertNotIn("STATUS: DEPLOYED", output.decode("utf-8"), "Helm release is DEPLOYED but should be FAILED")
+
+        while timeout > 0:
+            try:
+                output = self.__helm.status("lostromos-nemo")
+                self.assertIn("STATUS: FAILED", output.decode("utf-8"))
+                return
+            except AssertionError:
+                sleep(1)
+                timeout -= seconds_to_sleep
+        raise AssertionError("Helm release not marked as failed")
 
     def __wait_for_lostromos_start(self):
         """

@@ -1,0 +1,6 @@
+image: dockercloud/hello-world:abrokentag
+replicas: 3
+resource:
+  name: hercules
+  spec:
+    by: greece

@@ -33,11 +33,13 @@ type Controller struct {
 	Helm        helm.Interface // Helm for talking with helm
 	Namespace   string         // Default namespace to deploy into. If empty it will default to "default"
 	ReleaseName string         // Prefix for the helm release name. Will look like ReleaseName-CR_Name
+	Wait        bool           // Whether or not to wait for resources during Update and Install before marking a release successful
+	WaitTimeout int64          // time in seconds to wait for kubernetes resources to be created before marking a release successful
 	logger      *zap.SugaredLogger
 }
 
 // NewController will return a configured Helm Controller
-func NewController(chartDir, ns, rn, host string, logger *zap.SugaredLogger) *Controller {
+func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logger *zap.SugaredLogger) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
@@ -50,6 +52,8 @@ func NewController(chartDir, ns, rn, host string, logger *zap.SugaredLogger) *Co
 		ChartDir:    chartDir,
 		Namespace:   ns,
 		ReleaseName: rn,
+		Wait:        wait,
+		WaitTimeout: waitto,
 		logger:      logger,
 	}
 	return c
@@ -114,14 +118,18 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 		_, err = c.Helm.UpdateRelease(
 			rlsName,
 			c.ChartDir,
-			helm.UpdateValueOverrides(cr))
+			helm.UpdateValueOverrides(cr),
+			helm.UpgradeWait(c.Wait),
+			helm.UpgradeTimeout(c.WaitTimeout))
 		return err
 	}
 	_, err = c.Helm.InstallRelease(
 		c.ChartDir,
 		c.Namespace,
 		helm.ReleaseName(rlsName),
-		helm.ValueOverrides(cr))
+		helm.ValueOverrides(cr),
+		helm.InstallWait(c.Wait),
+		helm.InstallTimeout(c.WaitTimeout))
 	return err
 }
 
