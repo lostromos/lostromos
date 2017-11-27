@@ -58,6 +58,8 @@ func init() {
 	startCmd.Flags().String("helm-ns", "default", "Namespace for resources deployed by helm")
 	startCmd.Flags().String("helm-prefix", "lostromos", "Prefix for release names in helm")
 	startCmd.Flags().String("helm-tiller", "tiller-deploy:44134", "Address for helm tiller")
+	startCmd.Flags().Bool("helm-wait", false, "Use the helm --wait flag for creating and updating releases")
+	startCmd.Flags().Int64("helm-wait-timeout", 120, "The time in seconds to wait for kubernetes resources to be created when doing a helm install or upgrade")
 	startCmd.Flags().String("kube-config", filepath.Join(homeDir(), ".kube", "config"), "absolute path to the kubeconfig file. Only required if running outside-of-cluster.")
 	startCmd.Flags().Bool("nop", false, "nop")
 	startCmd.Flags().String("server-address", ":8080", "The address and port for endpoints such as /metrics and /status")
@@ -73,11 +75,13 @@ func init() {
 	viperBindFlag("helm.namespace", startCmd.Flags().Lookup("helm-ns"))
 	viperBindFlag("helm.releasePrefix", startCmd.Flags().Lookup("helm-prefix"))
 	viperBindFlag("helm.tiller", startCmd.Flags().Lookup("helm-tiller"))
+	viperBindFlag("helm.wait", startCmd.Flags().Lookup("helm-wait"))
+	viperBindFlag("helm.waitTimeout", startCmd.Flags().Lookup("helm-wait-timeout"))
 	viperBindFlag("k8s.config", startCmd.Flags().Lookup("kube-config"))
 	viperBindFlag("nop", startCmd.Flags().Lookup("nop"))
 	viperBindFlag("server.address", startCmd.Flags().Lookup("server-address"))
-	viperBindFlag("server.metrics_endpoint", startCmd.Flags().Lookup("metrics-endpoint"))
-	viperBindFlag("server.status_endpoint", startCmd.Flags().Lookup("status-endpoint"))
+	viperBindFlag("server.metricsEndpoint", startCmd.Flags().Lookup("metrics-endpoint"))
+	viperBindFlag("server.statusEndpoint", startCmd.Flags().Lookup("status-endpoint"))
 	viperBindFlag("templates", startCmd.Flags().Lookup("templates"))
 }
 
@@ -128,14 +132,18 @@ func getController() crwatcher.ResourceController {
 		hns := viper.GetString("helm.namespace")
 		hrn := viper.GetString("helm.releasePrefix")
 		ht := viper.GetString("helm.tiller")
+		hw := viper.GetBool("helm.wait")
+		hwto := viper.GetInt64("helm.waitTimeout")
 		logger = logger.With("controller", "helm")
 		logger.Infow("using helm controller for deployment",
 			"helmChart", chrt,
 			"helmNamespace", hns,
 			"helmReleasePrefix", hrn,
 			"helmTiller", ht,
+			"helmWait", hw,
+			"helmWaitTimeout", hwto,
 		)
-		return helmctlr.NewController(chrt, hns, hrn, ht, logger)
+		return helmctlr.NewController(chrt, hns, hrn, ht, hw, hwto, logger)
 	}
 	logger = logger.With("controller", "template")
 	logger.Infow("using template controller for deployment", "templateDir", viper.GetString("templates"))
@@ -180,8 +188,8 @@ func startServer() error {
 	}
 
 	// Set up Prometheus and Status endpoints.
-	http.Handle(viper.GetString("server.metrics_endpoint"), promhttp.Handler())
-	http.HandleFunc(viper.GetString("server.status_endpoint"), status.Handler)
+	http.Handle(viper.GetString("server.metricsEndpoint"), promhttp.Handler())
+	http.HandleFunc(viper.GetString("server.statusEndpoint"), status.Handler)
 	go func() {
 		err := http.ListenAndServe(viper.GetString("server.address"), nil)
 		if err != nil {

@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.resource.name }}-hello
+  labels:
+    app: {{ .Values.resource.name }}-hello
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicas }}
+  template:
+    metadata:
+      labels:
+        resource: {{ .Values.resource.name }}
+        component: hello
+        By: {{ .Values.resource.spec.By | replace " " "_" }}
+    spec:
+      containers:
+      - name: hello
+        image: {{ .Values.image }}
+        resources:
+          requests:
+            cpu: "10m"
+          limits:
+            cpu: "100m"
+        ports:
+        - containerPort: 80

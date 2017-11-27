@@ -1,0 +1,13 @@
+crd:
+  group: stable.nicolerenee.io
+  name: characters
+helm:
+  chart: test/data/helm/brokenchart
+  namespace: lostromos
+  tiller: 192.168.99.100:32664
+  wait: true
+  waitTimeout: 10
+
+logging:
+  debug: true
+  pretty: true
