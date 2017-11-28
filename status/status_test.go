@@ -24,5 +24,5 @@ import (
 func TestStatusHandler(t *testing.T) {
 	writer := new(http.TestResponseWriter)
 	Handler(writer, nil)
-	assert.Equal(t, "{\"Success\":true,\"Info\":\"Up and Running!\"}", writer.Output)
+	assert.Equal(t, "{\"success\": true}", writer.Output)
 }

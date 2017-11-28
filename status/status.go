@@ -15,7 +15,6 @@
 package status
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -27,23 +26,11 @@ type Response struct {
 }
 
 // Handler is used for managing calls to /status to inform of the current status of Lostromos.
-func Handler(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Set("Content-Type", "application/json")
-	_, err := fmt.Fprint(writer, jsonResponse())
+func Handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, err := fmt.Fprint(w, "{\"success\": true}")
 	if err != nil {
-		panic(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-}
-
-// Create a Json Response to return as the status.
-func jsonResponse() string {
-	response := &Response{
-		Success: true,
-		Info:    "Up and Running!",
-	}
-	bytes, err := json.Marshal(response)
-	if err != nil {
-		panic(err)
-	}
-	return string(bytes)
 }

@@ -280,7 +280,7 @@ class IntegrationTest(TestCase):
             try:
                 status_response = requests.get(self.__status_url)
                 status_response.raise_for_status()
-                self.assertTrue(status_response.json()["Success"])
+                self.assertTrue(status_response.json()["success"])
             except requests.exceptions.ConnectionError:
                 sleep(seconds_to_sleep)
                 seconds_to_wait -= seconds_to_sleep
