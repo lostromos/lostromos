@@ -124,7 +124,7 @@ func TestResourceAddedHappyPath(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
@@ -145,7 +145,7 @@ func TestResourceAddedHappyPathExists(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	res := &services.ListReleasesResponse{
 		Count: int64(1),
 		Releases: []*release.Release{
@@ -171,7 +171,7 @@ func TestResourceAddedListErrorStillSuccessful(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, errors.New("Broken"))
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
@@ -192,7 +192,7 @@ func TestResourceAddedInstallErrors(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
@@ -212,7 +212,7 @@ func TestResourceAddedUpdateErrors(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	res := &services.ListReleasesResponse{
 		Count: int64(1),
 		Releases: []*release.Release{
@@ -271,7 +271,7 @@ func TestResourceUpdatedHappyPath(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
@@ -291,7 +291,7 @@ func TestResourceUpdatedHappyPathExists(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	res := &services.ListReleasesResponse{
 		Count: int64(1),
 		Releases: []*release.Release{
@@ -316,7 +316,7 @@ func TestResourceUpdatedListErrorStillSuccessful(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, errors.New("Broken"))
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
@@ -336,7 +336,7 @@ func TestResourceUpdatedInstallErrors(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
@@ -356,7 +356,7 @@ func TestResourceUpdatedUpdateErrors(t *testing.T) {
 	defer mockCtrl.Finish()
 	mockHelm := NewMockInterface(mockCtrl)
 	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any()}
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	res := &services.ListReleasesResponse{
 		Count: int64(1),
 		Releases: []*release.Release{
