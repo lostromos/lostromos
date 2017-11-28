@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/helm/pkg/helm"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 var defaultNS = "default"
@@ -144,7 +145,21 @@ func (c Controller) marshallCR(r *unstructured.Unstructured) ([]byte, error) {
 }
 
 func (c Controller) releaseExists(rlsName string) bool {
-	r, err := c.Helm.ListReleases(helm.ReleaseListNamespace(c.Namespace), helm.ReleaseListFilter(rlsName))
+	statuses := []release.Status_Code{
+		release.Status_UNKNOWN,
+		release.Status_DEPLOYED,
+		release.Status_DELETED,
+		release.Status_DELETING,
+		release.Status_FAILED,
+		release.Status_PENDING_INSTALL,
+		release.Status_PENDING_UPGRADE,
+		release.Status_PENDING_ROLLBACK,
+	}
+	r, err := c.Helm.ListReleases(
+		helm.ReleaseListNamespace(c.Namespace),
+		helm.ReleaseListFilter(rlsName),
+		helm.ReleaseListStatuses(statuses),
+	)
 	if err != nil {
 		return false
 	}
