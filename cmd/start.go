@@ -54,6 +54,7 @@ func init() {
 	startCmd.Flags().String("crd-group", "", "the group of the CRD you want monitored (ex: stable.wpengine.io)")
 	startCmd.Flags().String("crd-version", "v1", "the version of the CRD you want monitored")
 	startCmd.Flags().String("crd-namespace", metav1.NamespaceNone, "(optional) the namespace of the CRD you want monitored, only needed for namespaced CRDs (ex: default)")
+	startCmd.Flags().String("crd-filter", "", "(optional) Annotation key to specify that the custom resource has opted in to watching by Lostromos")
 	startCmd.Flags().String("helm-chart", "", "Path for helm chart")
 	startCmd.Flags().String("helm-ns", "default", "Namespace for resources deployed by helm")
 	startCmd.Flags().String("helm-prefix", "lostromos", "Prefix for release names in helm")
@@ -71,6 +72,7 @@ func init() {
 	viperBindFlag("crd.group", startCmd.Flags().Lookup("crd-group"))
 	viperBindFlag("crd.version", startCmd.Flags().Lookup("crd-version"))
 	viperBindFlag("crd.namespace", startCmd.Flags().Lookup("crd-namespace"))
+	viperBindFlag("crd.filter", startCmd.Flags().Lookup("crd-filter"))
 	viperBindFlag("helm.chart", startCmd.Flags().Lookup("helm-chart"))
 	viperBindFlag("helm.namespace", startCmd.Flags().Lookup("helm-ns"))
 	viperBindFlag("helm.releasePrefix", startCmd.Flags().Lookup("helm-prefix"))
@@ -114,6 +116,7 @@ func buildCRWatcher(cfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 		Group:      viper.GetString("crd.group"),
 		Version:    viper.GetString("crd.version"),
 		Namespace:  viper.GetString("crd.namespace"),
+		Filter:     viper.GetString("crd.filter"),
 	}
 	ctlr := getController()
 	l := &crLogger{logger: logger}

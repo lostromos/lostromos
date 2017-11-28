@@ -4,6 +4,8 @@ apiVersion: stable.nicolerenee.io/v1
 kind: Character
 metadata:
   name: thing1
+  annotations:
+    io.nicolerenee.lostromosApplied: Opting In
 spec:
   Name: Thing 1
   From: Cat in the Hat
@@ -17,5 +19,18 @@ metadata:
   name: thing2
 spec:
   Name: Thing 2
+  From: Cat in the Hat
+  By: Dr. Seuss
+
+---
+
+apiVersion: stable.nicolerenee.io/v1
+kind: Character
+metadata:
+  name: thing3
+  annotations:
+    io.nicolerenee.lostromosApplied: Opting In Again
+spec:
+  Name: Thing 3
   From: Cat in the Hat
   By: Dr. Seuss

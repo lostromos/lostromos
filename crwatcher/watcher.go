@@ -35,6 +35,7 @@ type Config struct {
 	Namespace  string        // namespace of the CRD
 	Version    string        // version of the CRD
 	PluralName string        // plural name of the CRD
+	Filter     string        // Optional disregard resources that don't have an annotation key matching this filter
 	Resync     time.Duration // How often existing CRs should be resynced (marked as updated)
 }
 
@@ -114,17 +115,41 @@ func (cw *CRWatcher) setupHandler(con ResourceController) {
 	cw.handler = cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			r := obj.(*unstructured.Unstructured)
-			con.ResourceAdded(r)
+			if cw.passesFiltering(r) {
+				con.ResourceAdded(r)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			r := obj.(*unstructured.Unstructured)
-			con.ResourceDeleted(r)
+			if cw.passesFiltering(r) {
+				con.ResourceDeleted(r)
+			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldR := oldObj.(*unstructured.Unstructured)
 			newR := newObj.(*unstructured.Unstructured)
-			con.ResourceUpdated(oldR, newR)
+			cw.update(con, oldR, newR)
 		},
+	}
+}
+
+// update sends an appropriate notification to the controller based on filtering outcomes of the old and new state of a
+// resource.
+//
+// If no filter is configured or both states of the resource pass filtering, send an update to the controller.
+// If the new state passes filtering and the old state does not, send an add notification to the controller.
+// If the old state passes filtering and the new state does not, send a delete notification to the controller.
+// If neither state passes filtering, ignore.
+//
+func (cw *CRWatcher) update(con ResourceController, oldR *unstructured.Unstructured, newR *unstructured.Unstructured) {
+	if cw.passesFiltering(newR) {
+		if cw.passesFiltering(oldR) {
+			con.ResourceUpdated(oldR, newR)
+			return
+		}
+		con.ResourceAdded(newR)
+	} else if cw.passesFiltering(oldR) {
+		con.ResourceDeleted(oldR)
 	}
 }
 
@@ -150,6 +175,22 @@ func (cw *CRWatcher) setupController() {
 		cw.Config.Resync,
 		cw.handler,
 	)
+}
+
+// passesFiltering checks to see if we are using an opt in filter (if not, then return true), and if so returns whether we
+// have an annotation matching the given filter.
+func (cw *CRWatcher) passesFiltering(r *unstructured.Unstructured) bool {
+	if cw.Config.Filter == "" {
+		return true
+	}
+
+	annotations := r.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+
+	_, ok := annotations[cw.Config.Filter]
+	return ok
 }
 
 // Watch will be called to begin watching the configured custom resource. All

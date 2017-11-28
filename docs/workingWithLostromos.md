@@ -29,6 +29,8 @@ To start working with Lostrómos, you should begin by playing around with some b
   * `group` (Required) The group of the CRD you want monitored (ex: stable.wpengine.io)
   * `version` (Required) The version of the CRD you want monitored
   * `namespace` The namespace of the CRD you want monitored
+  * `filter` Filter to specify if Lostromos will act on a resource create/update/delete. For more detailed information
+             about what events happen on filtered updates check [here](./events.md)
 * `helm` Information pertaining to helm deployments. Defaults to use the go template controller if no information is
     given.
   * `chart` Path to helm chart

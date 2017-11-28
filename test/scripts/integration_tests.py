@@ -30,6 +30,8 @@ _TEST_DATA_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 _LOSTROMOS_CONFIGURATION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "config.yaml")
 _CUSTOM_RESOURCE_DEFINION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "crd.yml")
 _THINGS_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things.yml")
+_THINGS_FILTERED_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things_filter.yml")
+_THINGS_FILTERED_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things_filter_update.yml")
 _NEMO_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo.yml")
 _NEMO_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo_update.yml")
 
@@ -121,69 +123,31 @@ class Helm(object):
         except subprocess.CalledProcessError as error:
             return error.output
 
-class IntegrationTest(TestCase):
+
+class HelmIntegrationTest(TestCase):
     """
-    Class used to perform Lostromos integration testing against a minikube environment. Uses kubectl to manipulate the
-    kubernetes system.
+    Class used to perform Lostromos integration testing with helm against a minikube environment. Uses kubectl to
+    manipulate the kubernetes system and helm to interact with helm.
     """
 
     def setUp(self):
         """
-        Ensure the custom resource definition exists, and set up the status and metrics url.
+        Ensure the custom resource definition exists, and set up Helm.
         """
+
         self.__kubectl = Kubectl()
         # Set up the tiller and expose it via a nodeport service
         self.__helm = Helm()
         self.__helm.init()
         self.__kubectl.apply(_TEST_DATA_DIRECTORY + "/tiller_nodeport_service.yml")
-        # Ensure the CRD is there and there are no characters, for a clean starting point
         self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINION_FILE)
-        self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE)
         self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE)
-        self.__kubectl.delete(_NEMO_UPDATE_CUSTOM_RESOURCE_FILE)
-        self.__lostromos_ip_and_port = os.getenv("LOSTROMOS_IP_AND_PORT", "localhost:8080")
-        self.__lostromos_process = None
-        self.__status_url = "http://{}/status".format(self.__lostromos_ip_and_port)
-        self.__metrics_url = "http://{}/metrics".format(self.__lostromos_ip_and_port)
         self.__minikube_ip = subprocess.check_output(["minikube", "ip"]).strip().decode('utf-8')
 
     def runTest(self):
         """
-        Ensure Lostromos is functioning as expected. Does the following steps.
-
-        1. Ensures we see thing1 and thing2 as existing on the system.
-        2. Add the nemo custom resource and see that Lostromos sees it as created.
-        3. Modify the nemo custom resource and see that Lostromos sees it as updated.
-        4. Delete both sets of custom resources and see that Lostromos picks them up as deleted.
+        Run test using Lostromos with a helm controller.
         """
-        if self.__lostromos_ip_and_port == "localhost:8080":
-            print("Starting Lostromos with template controller")
-            self.__lostromos_process = subprocess.Popen(
-                [
-                    _LOSTROMOS_EXE,
-                    "start",
-                    "--nop",
-                    "--config",
-                    _LOSTROMOS_CONFIGURATION_FILE,
-                ]
-            )
-            print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
-        print("Querying Lostromos at http://{}".format(self.__lostromos_ip_and_port))
-
-        self.__wait_for_lostromos_start()
-        self.__kubectl.apply(_THINGS_CUSTOM_RESOURCE_FILE)
-        self.__check_metrics(2, 2, 2, 0, 0)
-        self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
-        self.__check_metrics(3, 3, 3, 0, 0)
-        self.__kubectl.apply(_NEMO_UPDATE_CUSTOM_RESOURCE_FILE)
-        self.__check_metrics(4, 3, 3, 0, 1)
-        self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE, True)
-        self.__check_metrics(6, 1, 3, 2, 1)
-        self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE, True)
-        self.__check_metrics(7, 0, 3, 3, 1)
-        if self.__lostromos_process:
-            self.__lostromos_process.kill()
-
         print("Starting Lostromos with helm controller")
         self.__lostromos_process = subprocess.Popen(
             [
@@ -201,14 +165,124 @@ class IntegrationTest(TestCase):
         self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
         self.__wait_for_helm_to_fail(15)
 
-
-
     def tearDown(self):
         """
         Kill the lostromos process if it was created.
         """
         self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINION_FILE)
         self.__helm.delete("lostromos-nemo")
+        if self.__lostromos_process:
+            self.__lostromos_process.send_signal(signal.SIGINT)
+
+    def __wait_for_helm_to_fail(self, timeout):
+        """
+        Wait for the helm timeout to be reached and verify the release is marked as failed
+        :return:
+        """
+        seconds_to_sleep = 1
+        # Check that the release wasn't immediately marked as failed or successful
+
+        output = self.__helm.status("lostromos-nemo")
+        self.assertNotIn(
+            "STATUS: FAILED",
+            output.decode("utf-8"),
+            "Helm release is FAILED but did not wait for the timeout"
+        )
+        self.assertNotIn("STATUS: DEPLOYED", output.decode("utf-8"), "Helm release is DEPLOYED but should be FAILED")
+
+        while timeout > 0:
+            try:
+                output = self.__helm.status("lostromos-nemo")
+                self.assertIn("STATUS: FAILED", output.decode("utf-8"))
+                return
+            except AssertionError:
+                sleep(1)
+                timeout -= seconds_to_sleep
+        raise AssertionError("Helm release not marked as failed")
+
+
+class TemplateIntegrationTestWithFiltering(TestCase):
+    """
+    Class used to perform Lostromos integration testing against a minikube environment. Uses kubectl to manipulate the
+    kubernetes system.
+    """
+
+    def setUp(self):
+        """
+        Ensure the custom resource definition exists, and set up the status and metrics url.
+        """
+        self.__kubectl = Kubectl()
+
+        # Ensure the CRD is there and there are no characters, for a clean starting point
+        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE)
+        self.__kubectl.delete(_THINGS_FILTERED_CUSTOM_RESOURCE_FILE)
+        self.__kubectl.delete(_THINGS_FILTERED_UPDATE_CUSTOM_RESOURCE_FILE)
+        self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE)
+        self.__kubectl.delete(_NEMO_UPDATE_CUSTOM_RESOURCE_FILE)
+        self.__lostromos_process = None
+        self.__status_url = "http://localhost:8080/status"
+        self.__metrics_url = "http://localhost:8080/metrics"
+
+    def runTest(self):
+        """
+        Ensure Lostromos is functioning as expected. Does the following steps.
+
+        1. Ensures we see thing1 and thing2 as existing on the system.
+        2. Add the nemo custom resource and see that Lostromos sees it as created.
+        3. Modify the nemo custom resource and see that Lostromos sees it as updated.
+        4. Delete both sets of custom resources and see that Lostromos picks them up as deleted.
+        """
+        self.__lostromos_process = subprocess.Popen(
+            [
+                _LOSTROMOS_EXE,
+                "start",
+                "--nop",
+                "--config",
+                _LOSTROMOS_CONFIGURATION_FILE,
+            ]
+        )
+        print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
+
+        self.__wait_for_lostromos_start()
+        self.__kubectl.apply(_THINGS_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(2, 2, 2, 0, 0)
+        self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(3, 3, 3, 0, 0)
+        self.__kubectl.apply(_NEMO_UPDATE_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(4, 3, 3, 0, 1)
+        self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE, True)
+        self.__check_metrics(6, 1, 3, 2, 1)
+        self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE, True)
+        self.__check_metrics(7, 0, 3, 3, 1)
+
+        self.__lostromos_process.kill()
+        self.__lostromos_process = subprocess.Popen(
+            [
+                _LOSTROMOS_EXE,
+                "start",
+                "--nop",
+                "--config",
+                _LOSTROMOS_CONFIGURATION_FILE,
+                "--crd-filter",
+                "io.nicolerenee.lostromosApplied",
+            ]
+        )
+        print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
+
+        self.__wait_for_lostromos_start()
+        self.__kubectl.apply(_THINGS_FILTERED_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(2, 2, 2, 0, 0)
+        self.__kubectl.apply(_THINGS_FILTERED_UPDATE_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(5, 2, 3, 1, 1)
+        self.__kubectl.delete(_THINGS_FILTERED_UPDATE_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(7, 0, 3, 3, 1)
+
+    def tearDown(self):
+        """
+        Kill the lostromos process if it was created.
+        """
+        self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINION_FILE)
         if self.__lostromos_process:
             self.__lostromos_process.send_signal(signal.SIGINT)
 
@@ -240,32 +314,6 @@ class IntegrationTest(TestCase):
                 return
 
         raise AssertionError("Failed to see the expected number of events. {}".format(metrics))
-
-    def __wait_for_helm_to_fail(self, timeout):
-        """
-        Wait for the helm timeout to be reached and verify the release is marked as failed
-        :return:
-        """
-        seconds_to_sleep = 1
-        # Check that the release wasn't immediately marked as failed or successful
-
-        output = self.__helm.status("lostromos-nemo")
-        self.assertNotIn(
-            "STATUS: FAILED",
-            output.decode("utf-8"),
-            "Helm release is FAILED but did not wait for the timeout"
-        )
-        self.assertNotIn("STATUS: DEPLOYED", output.decode("utf-8"), "Helm release is DEPLOYED but should be FAILED")
-
-        while timeout > 0:
-            try:
-                output = self.__helm.status("lostromos-nemo")
-                self.assertIn("STATUS: FAILED", output.decode("utf-8"))
-                return
-            except AssertionError:
-                sleep(1)
-                timeout -= seconds_to_sleep
-        raise AssertionError("Helm release not marked as failed")
 
     def __wait_for_lostromos_start(self):
         """
