@@ -72,6 +72,7 @@ eval $(minikube docker-env -u) # Unlinks minikube and docker.
 - [Continuous Integration](./docs/continuousIntegration.md)
   - [Testing](./docs/testing.md)
 - [Deployment](./docs/deployment.md)
+- [Understanding Lostromos Events](./docs/events.md)
 
 ## Contributing
 

@@ -55,10 +55,12 @@ func TestBuildCRWatcherReturnsProperlyConfiguredWatcher(t *testing.T) {
 	crdName := "testCRD"
 	crdNamespace := "lostromos"
 	crdVersion := "v9876"
+	crdFilter := "useThisResource"
 	viper.Set("crd.group", crdGroup)
 	viper.Set("crd.name", crdName)
 	viper.Set("crd.namespace", crdNamespace)
 	viper.Set("crd.version", crdVersion)
+	viper.Set("crd.filter", crdFilter)
 
 	kubeCfg := &restclient.Config{}
 	crw, err := buildCRWatcher(kubeCfg)
@@ -68,6 +70,7 @@ func TestBuildCRWatcherReturnsProperlyConfiguredWatcher(t *testing.T) {
 	assert.Equal(t, crdName, crw.Config.PluralName)
 	assert.Equal(t, crdNamespace, crw.Config.Namespace)
 	assert.Equal(t, crdVersion, crw.Config.Version)
+	assert.Equal(t, crdFilter, crw.Config.Filter)
 }
 
 func TestGetControllerReturnsHelmController(t *testing.T) {
