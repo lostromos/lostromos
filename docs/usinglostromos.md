@@ -2,7 +2,6 @@
 
 # <a name="usinglostromos"></a>Using Lostrómos
 
-<<<<<<< HEAD
 ## <a name="reading"></a>Recommended Reading
 * [Custom Resource Definitions](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/)
 * [Custom Resources](https://kubernetes.io/docs/concepts/api-extension/custom-resources/)
@@ -21,9 +20,9 @@
 | `Docker` | 17.09.0+ |
 | `Python` | 3.0+ |
 
-Install the above dependencies. Run the following script (changing out your_os_version for darwin/linux/windows depending on your system) to get a basic
-setup. This script will install Go and Python dependencies, build Lostrómos, build a docker image with Lostrómos, then
-run it in Minikube and perform integration testing.
+Install the above dependencies, then run the following script substituting `your_os_version` for darwin/linux/windows depending on your system. 
+
+*This script will install Go and Python dependencies, build Lostrómos, build a docker image with Lostrómos, then run it in Minikube and perform integration testing.*
 
 ```bash
 make install-go-deps
@@ -36,29 +35,43 @@ eval $(minikube docker-env) # This links docker with minikube so that the image 
 make docker-build-test
 kubectl create -f test/data/crd.yml
 make LOSTROMOS_IP_AND_PORT=`minikube service lostromos --url | cut -c 8-` integration-tests
-<<<<<<< HEAD
 eval $(minikube docker-env -u) # Unlinks minikube and docker.
 ```
 
 ## <a name="tutorial"></a>Tutorial
 
-To start working with Lostrómos, you should begin by playing around with some basic CR management. Build Lostrómos via
-`make build`, then do some/all of the following steps.
+To start working with Lostrómos, you should begin by playing around with some basic CR management. Build Lostrómos via `make build`, then do  the following steps.
 
-1. Setup kubectl against a cluster (minikube works just fine)
-2. `kubectl apply -f test/data/crd.yml`
-3. `kubectl apply -f test/data/cr_things.yml`
-4. `./lostromos start --config test/data/config.yaml --nop`
-  - See that it prints out that `thing1` and `thing2` were added
-5. In another shell `kubectl apply -f test/data/cr_nemo.yml`
-  - See that it prints out that `nemo` was added
-6. `kubectl edit character nemo` and change a field
-  - See that it prints out that `nemo` was changed
-7. `kubectl delete -f test/data/cr_nemo.yml`
-  - See that it prints out that `nemo` was deleted
-8. `kubectl delete -f test/data/cr_things.yml`
-  - See that it prints out that `thing1` and `thing2` were deleted
-9. You can stop the process and `kubectl delete -f test/data/crd.yml` to cleanup the rest of the test data.
+1. Setup kubectl against a cluster. (See [this guide](https://kubernetes.io/docs/getting-started-guides/minikube/) for setting up Minikube.)
+2. Set up a Custom Resource Definition (CRD). 
+  * View the [CRD config file](../test/data/crd.yml)
+  * Run `kubectl apply -f test/data/crd.yml` 
+3. Create CR objects for thing1 and thing2
+  * View the [CR config file](../test/data/cr_things.yml) for thing1 and thing2
+  * Run `kubectl apply -f test/data/cr_things.yml`
+4. Start Lostrómos
+  * View the [Lostromos config file](../test/data/config.yaml)
+    * Lostrómos is set up to watch the CRD you just defined
+    * Lostrómos is set up to apply the templates defined [here](../test/data/templates)
+      * Templates are defined for an nginx Deployment and a Configmap
+  * Run `./lostromos start --config test/data/config.yaml`
+  * See that resources were added for thing1 and thing2 
+    * `{"controller": "template", "resource": "thing1"}`
+    * `{"controller": "template", "resource": "thing2"}`
+  * Verify resources were created (switch to new shell for the remainder of the tutorial)
+    * In another shell run `kubectl get deployments` and verify thing1 and thing2 nginx deployments
+    * Run `kubectl get configmaps` and verify thing1 and thing2 configmaps
+5. Create new resources
+  * Run `kubectl apply -f test/data/cr_nemo.yml`
+  * Verify that the `nemo-nginx` and `nemo-configmap` were created
+6. Edit existing resources
+  * Run `kubectl edit character nemo` and edit the `By` field in `spec` to say `Pixar`
+  * Run `kubectl describe configmap nemo-configmap` to verify the change was propogated
+7. Delete a resource
+  * Run `kubectl delete -f test/data/cr_nemo.yml`
+  * Verify that the nemo configmap and nginx deployment were deleted
+8. Delete all resources
+  * Run `kubectl delete -f test/data/crd.yml` to cleanup the rest of the test data.
 
 ## Customization
 
@@ -69,7 +82,7 @@ To start working with Lostrómos, you should begin by playing around with some b
   * `group` (Required) The group of the CRD you want monitored (ex: stable.wpengine.io)
   * `version` (Required) The version of the CRD you want monitored
   * `namespace` The namespace of the CRD you want monitored
-  * `filter` Filter to specify if Lostromos will act on a resource create/update/delete. For more detailed information about what events happen on filtered updates check [here](./events.md)
+  * `filter` Filter to specify if Lostromos will act on a resource create/update/delete. For more detailed information about what events happen on filtered updates, read up on events [here](./events.md).
 * `helm` Information pertaining to helm deployments. Defaults to use the go template controller if no information is
     given
   * `chart` Path to helm chart
@@ -105,17 +118,11 @@ CR fields are accessible to the template by using .GetField
 
 ## <a name="deployment"></a>Deployment
 
-We don't deploy a docker image with Lostrómos, but instead only release the binary to github so that it can be built in
-to the image you need for your particular application. This is due to the link between kubectl and Lostromos, and it's
-possible the kubectl we intend to use isn't valid for everyones use case. We do build a docker image as part of testing
-that can be thought of as an [example](../test/docker/Dockerfile) however.
+### Docker
 
-### GOOS Environment Variable
+We don't deploy a docker image with Lostrómos, but instead only release the binary to github. However, we do build a docker image as part of testing. The Dockerfile we use for test is available [here](../test/docker/Dockerfile).
 
-In order for `lostromos` to work in a scratch/alpine container (and therefore be as small as possible), we need to build
-the binary with the normal `make build` command, but having set GOOS=linux.
+## <a name="logs"></a>Logs
 
-### Kubectl Version
-
-We test with [kubectl] version 1.7.x for our installs due to an issue with 1.8 that causes error messages
-(false failures).
+- When Lostrómos is running locally, the logs are outputted to the console.
+- When running inside a cluster, the logs can be viewed with the `kubectl log lostromos` command

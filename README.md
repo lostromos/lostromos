@@ -9,10 +9,10 @@ Lostrómos is a templating [operator](https://coreos.com/blog/introducing-operat
 
 ## <a name="toc"></a>Table of Contents
 
-* [Overview](#Overview)
-  * [Problem Statement](#Problem-Statement)
-  * [How It Works](#How-It-Works)
-  * [Use Cases](#Use-Cases)
+* [Overview](#overview)
+  * [Problem Statement](#problem-statement)
+  * [How It Works](#how-it-works)
+  * [Use Cases](#use-cases)
 * [Using Lostrómos](docs/usinglostromos.md#usinglostromos)
   * [Recommended Reading](docs/usinglostromos.md#reading)
   * [Quick Start](docs/usinglostromos.md#quickstart)
@@ -21,12 +21,13 @@ Lostrómos is a templating [operator](https://coreos.com/blog/introducing-operat
   	* [Events](docs/events.md)
   	* [Using Helm](docs/helm.md)
   * [Deploying Lostrómos](docs/usinglostromos.md#deployment)
+  * [Logs](docs/usinglostromos.md#logs)
 * [Contributing to Lostrómos](docs/development.md#contributing)
-	* [Development](docs/development.md#-a-name-development-a-development)
-	* [Testing](docs/development.md#-a-name-testing-a-testing)
+	* [Development](docs/development.md#development)
+	* [Testing](docs/development.md#testing)
 	* [Continuous Integration](docs/development.md#ci)
 	* [Contribution Guidelines](CONTRIBUTING.md)
-	* [Reporting a Bug](CONTRIBUTING.md#bugs)
+		* [Reporting a Bug](CONTRIBUTING.md#bugs)
 
 ## Overview
 ### Problem Statement
