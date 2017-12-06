@@ -1,83 +1,51 @@
-# Lostrómos
+![Lostrómos logo](docs/images/logo.png)
 
 [![Build Status](https://travis-ci.org/wpengine/lostromos.svg?branch=master)](https://travis-ci.org/wpengine/lostromos)
 [![codecov](https://codecov.io/gh/wpengine/lostromos/branch/master/graph/badge.svg)](https://codecov.io/gh/wpengine/lostromos)
 
-**NOTE**: Under active development. Not ready for production usage.
+Lostrómos is a templating [operator](https://coreos.com/blog/introducing-operators.html).
 
-## Problem statement
+*Please note that the documentation on Kubernetes Operators is somewhat out of date. [Third party resources](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-third-party-resource/) have been deprecated, and operators now watch [Custom Resources](https://kubernetes.io/docs/concepts/api-extension/custom-resources/).*
 
-Lostrómos is a way to manage deployments through Custom Resources. This allows a user to harness the power and
-flexibility of the Kubernetes platform to more easily control resources through outside applications.
+## <a name="toc"></a>Table of Contents
 
-WP Engine uses Lostrómos to customize deployments into GKE. As we spin up new clusters, we use another tool to monitor
-the google api for changes and update Custom Resources as they happen. Lostrómos watches for Custom Resources and
-applies a predefined template based on the information received. This allows us to deconstruct a larger service by
-deliniating based on functionality. Our applications now manage resources, and Lostrómos handles the deployments.
+* [Overview](#Overview)
+  * [Problem Statement](#Problem-Statement)
+  * [How It Works](#How-It-Works)
+  * [Use Cases](#Use-Cases)
+* [Using Lostrómos](docs/usinglostromos.md#usinglostromos)
+  * [Quick Start](docs/usinglostromos.md#quickstart)
+  * [Recommended Reading](docs/usinglostromos.md#recommended-reading)
+  * [Tutorial](docs/usinglostromos.md#tutorial)
+  * [Customization](docs/usinglostromos.md#customization)
+  	* [Events](docs/events.md)
+  	* [Using Helm](docs/helm.md)
+  * [Deploying Lostrómos](docs/usinglostromos.md#deployment)
+* [Contributing to Lostrómos](docs/development.md#contributing)
+	* [Development](docs/development.md#-a-name-development-a-development)
+	* [Testing](docs/development.md#-a-name-testing-a-testing)
+	* [Continuous Integration](docs/development.md#ci)
+	* [Contribution Guidelines](CONTRIBUTING.md)
+	* [Reporting a Bug](CONTRIBUTING.md#bugs)
 
-## How it works
+## Overview
+### Problem Statement
 
-Lostrómos is a service that creates Kubernetes resources based on a Custom Resource endpoint in the Kubernetes API. It
-is an implementation of the [Operator pattern](https://coreos.com/blog/introducing-operators.html) established by
-CoreOS.
+Managing, sharing, and controlling an application's operational domain knowledge can be prone to human error and may create points of failure. Instead of maintaining lists, databases, and/or logic structures to control this information, Lostrómos automates maintenance of this information with only the need for a predefined template.
 
-Lostrómos manages objects (pods, sets, jobs - anything that can be managed with a CRD) via Helm or Go templates, using
-values from Custom Resources as new events are captured from the Kubernetes API. It applies templates to the
-corresponding objects to reconcile with Kubernetes.
+### How It Works
 
-It is intended to be deployed into a Kubernetes cluster. Its main configuration details are:
+Lostrómos is a Kubernetes operator. It watches a Custom Resource (CR) endpoint. When a change is detected, it uses the information in the CR to fill a template. This template is applied either via [kubectl](https://kubernetes.io/docs/user-guide/kubectl-overview/) or [Helm](https://docs.helm.sh/).
 
-- An API endpoint of a Custom Resource Definition to watch
-- A set of go templates to apply for each Custom Resource
+### Use Cases
+*Control access to creation of Kubernetes resources*
 
-Its configuration could also include shared values to use in the templating (eg.
-docker image in deployments, a common annotation or label).
+As a Kubernetes admin, allow developers to create instances of an application for development purposes without giving them direct access to deploy to the production cluster. Developers can create a CR, and with Lostrómos, the instance is deployed with development specific operational parameters (such as a test database or a specific application package).
 
-## Dependencies
+*Automate deployment of services alongside your application*
 
-| Dependency | Version |
-| ---------- | ------- |
-| `Golang` | 1.9.0+ |
-| `Minikube` | 0.22.3+ |
-| `Docker` | 17.09.0+ |
-| `Python` | 3.0+ |
+Deploy a Kubernetes application and an accompanying monitoring service that relies on operational data from that application (such as an IP address) by creating a single CR.
 
-## Quick Start
+*Eliminate maintenance of application operational knowledge for deployments*
 
-**NOTE**: This assumes you have all of the above dependency requirements.
-
-Run the following script (changing out os_version for darwin/linux/windows depending on your system) to get a basic
-setup. This script will install Go and Python dependencies, build Lostrómos, build a docker image with Lostrómos, then
-run it in Minikube and perform integration testing.
-
-```bash
-make install-go-deps
-make vendor
-make install-python-deps
-make build-cross
-./out/lostromos-os_version-amd64 version
-minikube start
-eval $(minikube docker-env) # This links docker with minikube so that the image you build in the next step will be available.
-make docker-build-test
-kubectl create -f test/data/crd.yml
-kubectl expose pod lostromos --type=LoadBalancer
-make LOSTROMOS_IP_AND_PORT=`minikube service lostromos --url | cut -c 8-` integration-tests
-eval $(minikube docker-env -u) # Unlinks minikube and docker.
-```
-
-## Using Lostrómos
-
-- [Working with Lostrómos](./docs/workingWithLostromos.md)
-- [Development](./docs/development.md)
-- [Continuous Integration](./docs/continuousIntegration.md)
-  - [Testing](./docs/testing.md)
-- [Deployment](./docs/deployment.md)
-- [Understanding Lostromos Events](./docs/events.md)
-
-## Contributing
-
-See [Contribution Guildelines](./CONTRIBUTING.md) to get started.
-
-## Report a Bug
-
-To report an issue or suggest an improvement please open an [issue](https://github.com/wpengine/lostromos/issues).
+WP Engine uses Lostrómos in conjunction with another tool to customize VM deployments into GCE. Each VM instance offloads some of its workload to a separate Kubernetes application. As we create new VMs in GCE, this other tool monitors the Google API for these changes and creates a CR as they happen. Lostrómos watches for changes to this CR endpoint and creates a Helm release by combining information from the new CR and a predefined template. This allows us to deconstruct some of the work for our deployment into GCE and reduce maintenance work around sharing the data between applications.
