@@ -1,4 +1,5 @@
 ![Lostrómos logo](images/logo.png)
+
 # Understanding Lostrómos Events
 
 This document is meant to describe the events that will occur when you use Lostrómos with different settings.

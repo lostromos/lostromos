@@ -1,4 +1,5 @@
 ![Lostrómos logo](docs/images/logo.png)
+
 # Contribution Guidelines
 
 ## <a name="bugs"></a>Report a Bug
