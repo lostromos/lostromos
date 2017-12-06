@@ -1,7 +1,8 @@
+![Lostrómos logo](images/logo.png)
 # Using Helm with Lostrómos
 
-In order to make migrating to Lostrómos easier we support using helm to handle
-the templating. This allows you to provide a helm chart to Lostrómos.
+In order to make migrating to Lostrómos easier we support using Helm to handle
+the templating. This allows you to provide a Helm chart to Lostrómos.
 
 ## Tiller
 
@@ -14,7 +15,7 @@ deployment. If you are in a different namespace you would use
 ## Version
 
 Helm requires the the tiller and the client be running the same version.
-Currently Lostrómos uses version v2.7.0 of helm.
+Currently Lostrómos uses version v2.7.0 of Helm.
 
 ## Running outside the cluster
 
