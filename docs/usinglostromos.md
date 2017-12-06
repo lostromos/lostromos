@@ -2,7 +2,11 @@
 
 # <a name="usinglostromos"></a>Using Lostrómos
 
+<<<<<<< HEAD
 ## <a name="reading"></a>Recommended Reading
+=======
+## Recommended Reading
+>>>>>>> a75dd1ab2fedb9967e145d0614e0aef26b9de861
 * [Custom Resource Definitions](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/)
 * [Custom Resources](https://kubernetes.io/docs/concepts/api-extension/custom-resources/)
 * [Kubernetes Operators](https://coreos.com/blog/introducing-operators.html)
@@ -35,8 +39,12 @@ eval $(minikube docker-env) # This links docker with minikube so that the image 
 make docker-build-test
 kubectl create -f test/data/crd.yml
 make LOSTROMOS_IP_AND_PORT=`minikube service lostromos --url | cut -c 8-` integration-tests
+<<<<<<< HEAD
 eval $(minikube docker-env -u) # Unlinks minikube and docker.
 ```
+=======
+eval $(minikube docker-env -u) # Unlinks minikube and docker.```
+>>>>>>> a75dd1ab2fedb9967e145d0614e0aef26b9de861
 
 ## <a name="tutorial"></a>Tutorial
 
