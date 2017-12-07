@@ -1,6 +1,10 @@
+![Lostrómos logo](docs/images/logo.png)
+
 # Contribution Guidelines
 
-## Security issues
+## <a name="bugs"></a>Report a Bug
+
+To report an issue or suggest an improvement please open an [issue](https://github.com/wpengine/lostromos/issues).
 
 If you are reporting a security issue, do not create an issue or file a pull
 request on GitHub. Instead, disclose the issue responsibly by sending an email
