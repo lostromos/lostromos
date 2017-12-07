@@ -53,7 +53,7 @@ coverage: | vendor
 	@echo Generating coverage report...
 	@./test/scripts/coverage.sh
 
-lint: golint lint-markdown lint-python
+lint: golint lint-python lint-markdown
 
 golint: | vendor
 	@echo Linting Go files...
@@ -61,7 +61,7 @@ golint: | vendor
 
 lint-markdown:
 	@echo Linting Markdown files...
-	@find . -path ./vendor -prune -o -name "*.md" -exec bash -c 'docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} || kill $$PPID' \;
+	@find . -path ./vendor -prune -o -name "*.md" -exec bash -c 'docker run --rm -v `pwd`/{}:/workspace/{} ${MARKDOWN_LINTER} /workspace/{} -r ~MD002,~MD005,~MD007,~MD029,~MD032,~MD033,~MD036,~MD041 || kill $$PPID' \;
 
 lint-python:
 	@echo Linting Python files...
