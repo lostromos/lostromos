@@ -1,7 +1,9 @@
+![Lostrómos logo](images/logo.png)
+
 # Using Helm with Lostrómos
 
-In order to make migrating to Lostrómos easier we support using helm to handle
-the templating. This allows you to provide a helm chart to Lostrómos.
+In order to make migrating to Lostrómos easier we support using Helm to handle
+the templating. This allows you to provide a Helm chart to Lostrómos.
 
 ## Tiller
 
@@ -14,7 +16,7 @@ deployment. If you are in a different namespace you would use
 ## Version
 
 Helm requires the the tiller and the client be running the same version.
-Currently Lostrómos uses version v2.7.0 of helm.
+Currently Lostrómos uses version v2.7.0 of Helm.
 
 ## Running outside the cluster
 
@@ -22,7 +24,8 @@ If you are running outside of the kubernetes cluster access to the tiller is a
 little more complicated. It is not a good idea to expose the tiller outside of
 the cluster since it is not secure by default. Your best option is to
 use the `kubectl port-forward` command. This is a simple set of commands you can
-run that will setup a port forward for you that will work with the default tiller deployment.
+run that will setup a port forward for you that will work with the default
+tiller deployment.
 
 ```bash
 export TILLER_NS=kube-system
@@ -40,9 +43,9 @@ to `127.0.0.1:44134`
 Lostrómos provides access to the resource from within your charts under the
 variable name `resource`. The resource has the following fields available on it:
 
-- `name` - Which is the custom resource name
-- `namespace` - represents the namespace the custom resource is deployed in
-- `spec` - holds all of the data that is stored in your resources spec field.
+* `name` - Which is the custom resource name
+* `namespace` - represents the namespace the custom resource is deployed in
+* `spec` - holds all of the data that is stored in your resources spec field.
 
 Given this custom resource
 
@@ -57,7 +60,7 @@ spec:
   By: Disney
 ```
 
-- `{{ .Values.resource.name }}` would return "nemo"
-- `{{ .Values.resource.spec.name }}` would return "Nemo"
-- `{{ .Values.resource.spec.from }}` would return "Finding Nemo"
-- `{{ .Values.resource.spec.by }}` would return "Disney"
+* `{{ .Values.resource.name }}` would return "nemo"
+* `{{ .Values.resource.spec.name }}` would return "Nemo"
+* `{{ .Values.resource.spec.from }}` would return "Finding Nemo"
+* `{{ .Values.resource.spec.by }}` would return "Disney"

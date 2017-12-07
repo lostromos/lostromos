@@ -1,10 +1,14 @@
-# Understanding Lostromos Events
+![Lostrómos logo](images/logo.png)
 
-This document is meant to describe the events that will occur when you use Lostromos with different settings.
+# Understanding Lostrómos Events
+
+This document is meant to describe the events that will occur when you use
+ Lostrómos with different settings.
 
 ## Updates with a Filter
 
-When performing updates and using a non empty filter via the `crd.filter` option, we have defined the behavior:
+When performing updates and using a non empty filter via the `crd.filter`
+ option, we have defined the behavior:
 
 | Old Resource | New Resource | Action Taken |
 | ------------ | ------------ | ------------ |
