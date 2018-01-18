@@ -23,6 +23,7 @@ import (
 	"github.com/wpengine/lostromos/tmpl"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
 )
 
 // Controller implements a valid crwatcher.ResourceController that will manage
@@ -31,10 +32,11 @@ type Controller struct {
 	templatePath string     //path to dir where templates are located
 	Client       KubeClient //client for talking with kubernetes
 	logger       *zap.SugaredLogger
+	kubeClient   *dynamic.Client
 }
 
 // NewController will return a configured Controller
-func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger) *Controller {
+func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger, kubeClient *dynamic.Client) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
@@ -43,6 +45,7 @@ func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger) *C
 		Client:       &Kubectl{ConfigFile: kubeCfg},
 		templatePath: filepath.Join(tmplDir, "*.tmpl"),
 		logger:       logger,
+		kubeClient:   kubeClient,
 	}
 	return c
 }

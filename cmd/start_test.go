@@ -73,6 +73,26 @@ func TestBuildCRWatcherReturnsProperlyConfiguredWatcher(t *testing.T) {
 	assert.Equal(t, crdFilter, crw.Config.Filter)
 }
 
+func TestBuildCRWatcherReturnsNilWithInvalidKubeconfig(t *testing.T) {
+	crdGroup := "test.lostromos.k8s"
+	crdName := "testCRD"
+	crdNamespace := "lostromos"
+	crdVersion := "v9876"
+	crdFilter := "useThisResource"
+	viper.Set("crd.group", crdGroup)
+	viper.Set("crd.name", crdName)
+	viper.Set("crd.namespace", crdNamespace)
+	viper.Set("crd.version", crdVersion)
+	viper.Set("crd.filter", crdFilter)
+
+	kubeCfg := &restclient.Config{}
+	kubeCfg.Host = "http:///"
+	crw, err := buildCRWatcher(kubeCfg)
+	assert.Nil(t, crw)
+	assert.Error(t, err)
+	assert.Equal(t, "host must be a URL or a host:port pair: \"http:///\"", err.Error())
+}
+
 func TestGetControllerReturnsHelmController(t *testing.T) {
 	chart := "/path/chart"
 	ns := "lostromos"
@@ -83,7 +103,7 @@ func TestGetControllerReturnsHelmController(t *testing.T) {
 	viper.Set("helm.releasePrefix", prefix)
 	viper.Set("helm.tiller", tiller)
 
-	ctlr := getController().(*helmctlr.Controller)
+	ctlr := getController(nil).(*helmctlr.Controller)
 
 	assert.NotNil(t, ctlr)
 	assert.Equal(t, ctlr.ChartDir, chart)
@@ -98,7 +118,7 @@ func TestGetControllerReturnsTemplateController(t *testing.T) {
 	viper.Set("k8s.config", kubecfg)
 	viper.Set("helm.chart", "")
 
-	ctlr := getController().(*tmplctlr.Controller)
+	ctlr := getController(nil).(*tmplctlr.Controller)
 
 	assert.NotNil(t, ctlr)
 }
