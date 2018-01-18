@@ -32,7 +32,9 @@ import (
 	"github.com/wpengine/lostromos/version"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -110,7 +112,7 @@ func getKubeClient() (*restclient.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", viper.GetString("k8s.config"))
 }
 
-func buildCRWatcher(cfg *restclient.Config) (*crwatcher.CRWatcher, error) {
+func buildCRWatcher(kubeCfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 	cwCfg := &crwatcher.Config{
 		PluralName: viper.GetString("crd.name"),
 		Group:      viper.GetString("crd.group"),
@@ -118,12 +120,24 @@ func buildCRWatcher(cfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 		Namespace:  viper.GetString("crd.namespace"),
 		Filter:     viper.GetString("crd.filter"),
 	}
-	ctlr := getController()
 	l := &crLogger{logger: logger}
-	return crwatcher.NewCRWatcher(cwCfg, cfg, ctlr, l)
+
+	kubeCfg.ContentConfig.GroupVersion = &schema.GroupVersion{
+		Group:   cwCfg.Group,
+		Version: cwCfg.Version,
+	}
+	kubeCfg.APIPath = "apis"
+	dynClient, err := dynamic.NewClient(kubeCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	ctlr := getController(dynClient)
+
+	return crwatcher.NewCRWatcher(cwCfg, dynClient, ctlr, l)
 }
 
-func getController() crwatcher.ResourceController {
+func getController(dc *dynamic.Client) crwatcher.ResourceController {
 	if viper.GetBool("nop") {
 		logger = logger.With("controller", "print")
 		logger.Info("nop specified, using the print controller")
@@ -146,11 +160,11 @@ func getController() crwatcher.ResourceController {
 			"helmWait", hw,
 			"helmWaitTimeout", hwto,
 		)
-		return helmctlr.NewController(chrt, hns, hrn, ht, hw, hwto, logger)
+		return helmctlr.NewController(chrt, hns, hrn, ht, hw, hwto, logger, dc)
 	}
 	logger = logger.With("controller", "template")
 	logger.Infow("using template controller for deployment", "templateDir", viper.GetString("templates"))
-	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"), logger)
+	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"), logger, dc)
 }
 
 type crLogger struct {
