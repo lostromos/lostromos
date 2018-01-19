@@ -74,7 +74,7 @@ type ErrorLogger interface {
 }
 
 // NewCRWatcher builds a CRWatcher
-func NewCRWatcher(cfg *Config, dc *dynamic.Client, rc ResourceController, l ErrorLogger) (*CRWatcher, error) {
+func NewCRWatcher(cfg *Config, dc dynamic.Interface, rc ResourceController, l ErrorLogger) (*CRWatcher, error) {
 	cw := &CRWatcher{
 		Config: cfg,
 		logger: l,
@@ -141,7 +141,7 @@ func (cw *CRWatcher) update(con ResourceController, oldR *unstructured.Unstructu
 	}
 }
 
-func (cw *CRWatcher) setupResource(dc *dynamic.Client) {
+func (cw *CRWatcher) setupResource(dc dynamic.Interface) {
 	apiResource := &metav1.APIResource{
 		Name:       cw.Config.PluralName,
 		Namespaced: cw.Config.Namespace != metav1.NamespaceNone,

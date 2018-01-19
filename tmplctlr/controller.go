@@ -32,11 +32,11 @@ type Controller struct {
 	templatePath string     //path to dir where templates are located
 	Client       KubeClient //client for talking with kubernetes
 	logger       *zap.SugaredLogger
-	kubeClient   *dynamic.Client
+	dynClient    dynamic.Interface
 }
 
 // NewController will return a configured Controller
-func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger, kubeClient *dynamic.Client) *Controller {
+func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger, dynClient dynamic.Interface) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
@@ -45,7 +45,7 @@ func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger, ku
 		Client:       &Kubectl{ConfigFile: kubeCfg},
 		templatePath: filepath.Join(tmplDir, "*.tmpl"),
 		logger:       logger,
-		kubeClient:   kubeClient,
+		dynClient:    dynClient,
 	}
 	return c
 }
