@@ -32,19 +32,19 @@ var defaultNS = "default"
 // Controller is a crwatcher.ResourceController that works with Helm to deploy
 // helm charts into K8s providing a CustomResource as value data to the charts
 type Controller struct {
-	ChartDir    string         // path to dir where the Helm chart is located
-	Helm        helm.Interface // Helm for talking with helm
-	Namespace   string         // Default namespace to deploy into. If empty it will default to "default"
-	ReleaseName string         // Prefix for the helm release name. Will look like ReleaseName-CR_Name
-	Wait        bool           // Whether or not to wait for resources during Update and Install before marking a release successful
-	WaitTimeout int64          // time in seconds to wait for kubernetes resources to be created before marking a release successful
-	logger      *zap.SugaredLogger
-	kubeClient  kubernetes.Interface
-	dynClient   dynamic.Interface
+	ChartDir       string         // path to dir where the Helm chart is located
+	Helm           helm.Interface // Helm for talking with helm
+	Namespace      string         // Default namespace to deploy into. If empty it will default to "default"
+	ReleaseName    string         // Prefix for the helm release name. Will look like ReleaseName-CR_Name
+	Wait           bool           // Whether or not to wait for resources during Update and Install before marking a release successful
+	WaitTimeout    int64          // time in seconds to wait for kubernetes resources to be created before marking a release successful
+	logger         *zap.SugaredLogger
+	kubeClient     kubernetes.Interface
+	resourceClient dynamic.ResourceInterface
 }
 
 // NewController will return a configured Helm Controller
-func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logger *zap.SugaredLogger, dynClient dynamic.Interface, kubeClient kubernetes.Interface) *Controller {
+func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logger *zap.SugaredLogger, resourceClient dynamic.ResourceInterface, kubeClient kubernetes.Interface) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
@@ -53,15 +53,15 @@ func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logge
 		ns = defaultNS
 	}
 	c := &Controller{
-		Helm:        helm.NewClient(helm.Host(host)),
-		ChartDir:    chartDir,
-		Namespace:   ns,
-		ReleaseName: rn,
-		Wait:        wait,
-		WaitTimeout: waitto,
-		dynClient:   dynClient,
-		kubeClient:  kubeClient,
-		logger:      logger,
+		Helm:           helm.NewClient(helm.Host(host)),
+		ChartDir:       chartDir,
+		Namespace:      ns,
+		ReleaseName:    rn,
+		Wait:           wait,
+		WaitTimeout:    waitto,
+		resourceClient: resourceClient,
+		kubeClient:     kubeClient,
+		logger:         logger,
 	}
 	return c
 }

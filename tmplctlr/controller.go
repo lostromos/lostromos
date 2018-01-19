@@ -29,23 +29,23 @@ import (
 // Controller implements a valid crwatcher.ResourceController that will manage
 // resources in kubernetes based on the provided template files.
 type Controller struct {
-	templatePath string     //path to dir where templates are located
-	Client       KubeClient //client for talking with kubernetes
-	logger       *zap.SugaredLogger
-	dynClient    dynamic.Interface
+	templatePath   string     //path to dir where templates are located
+	Client         KubeClient //client for talking with kubernetes
+	logger         *zap.SugaredLogger
+	resourceClient dynamic.ResourceInterface
 }
 
 // NewController will return a configured Controller
-func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger, dynClient dynamic.Interface) *Controller {
+func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger, resourceClient dynamic.ResourceInterface) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
 	}
 	c := &Controller{
-		Client:       &Kubectl{ConfigFile: kubeCfg},
-		templatePath: filepath.Join(tmplDir, "*.tmpl"),
-		logger:       logger,
-		dynClient:    dynClient,
+		Client:         &Kubectl{ConfigFile: kubeCfg},
+		templatePath:   filepath.Join(tmplDir, "*.tmpl"),
+		logger:         logger,
+		resourceClient: resourceClient,
 	}
 	return c
 }
