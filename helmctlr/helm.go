@@ -21,6 +21,8 @@ import (
 	"github.com/wpengine/lostromos/metrics"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/helm/pkg/helm"
 	"k8s.io/helm/pkg/proto/hapi/release"
 )
@@ -37,10 +39,12 @@ type Controller struct {
 	Wait        bool           // Whether or not to wait for resources during Update and Install before marking a release successful
 	WaitTimeout int64          // time in seconds to wait for kubernetes resources to be created before marking a release successful
 	logger      *zap.SugaredLogger
+	kubeClient  kubernetes.Interface
+	dynClient   dynamic.Interface
 }
 
 // NewController will return a configured Helm Controller
-func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logger *zap.SugaredLogger) *Controller {
+func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logger *zap.SugaredLogger, dynClient dynamic.Interface, kubeClient kubernetes.Interface) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
@@ -55,6 +59,8 @@ func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logge
 		ReleaseName: rn,
 		Wait:        wait,
 		WaitTimeout: waitto,
+		dynClient:   dynClient,
+		kubeClient:  kubeClient,
 		logger:      logger,
 	}
 	return c
@@ -114,6 +120,7 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 	if err != nil {
 		return err
 	}
+
 	rlsName := c.releaseName(r)
 	if c.releaseExists(rlsName) {
 		_, err = c.Helm.UpdateRelease(
