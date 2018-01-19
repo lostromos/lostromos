@@ -135,24 +135,29 @@ func buildCRWatcher(kubeCfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 		return nil, err
 	}
 
+	apiResource := &metav1.APIResource{
+		Name:       cwCfg.PluralName,
+		Namespaced: cwCfg.Namespace != metav1.NamespaceNone,
+	}
+	resourceClient := dynClient.Resource(apiResource, cwCfg.Namespace)
+
 	k8sClient, err := kubernetes.NewForConfig(kubeCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	ctlr := getController(dynClient, k8sClient)
+	ctlr := getController(resourceClient, k8sClient)
 
 	return crwatcher.NewCRWatcher(cwCfg, dynClient, ctlr, l)
 }
 
-func getController(dynClient dynamic.Interface, k8sClient kubernetes.Interface) crwatcher.ResourceController {
+func getController(resourceClient dynamic.ResourceInterface, k8sClient kubernetes.Interface) crwatcher.ResourceController {
 	if viper.GetBool("nop") {
 		logger = logger.With("controller", "print")
 		logger.Info("nop specified, using the print controller")
 		return &printctlr.Controller{}
 	}
 	if viper.GetString("helm.chart") != "" {
-
 		chrt := viper.GetString("helm.chart")
 		hns := viper.GetString("helm.namespace")
 		hrn := viper.GetString("helm.releasePrefix")
@@ -168,11 +173,11 @@ func getController(dynClient dynamic.Interface, k8sClient kubernetes.Interface) 
 			"helmWait", hw,
 			"helmWaitTimeout", hwto,
 		)
-		return helmctlr.NewController(chrt, hns, hrn, ht, hw, hwto, logger, dynClient, k8sClient)
+		return helmctlr.NewController(chrt, hns, hrn, ht, hw, hwto, logger, resourceClient, k8sClient)
 	}
 	logger = logger.With("controller", "template")
 	logger.Infow("using template controller for deployment", "templateDir", viper.GetString("templates"))
-	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"), logger, dynClient)
+	return tmplctlr.NewController(viper.GetString("templates"), viper.GetString("k8s.config"), logger, resourceClient)
 }
 
 type crLogger struct {
