@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 )
 
 var startCmd = &cobra.Command{
@@ -61,7 +62,6 @@ func init() {
 	startCmd.Flags().String("helm-chart", "", "Path for helm chart")
 	startCmd.Flags().String("helm-ns", "default", "Namespace for resources deployed by helm")
 	startCmd.Flags().String("helm-prefix", "lostromos", "Prefix for release names in helm")
-	startCmd.Flags().String("helm-tiller", "tiller-deploy:44134", "Address for helm tiller")
 	startCmd.Flags().Bool("helm-wait", false, "Use the helm --wait flag for creating and updating releases")
 	startCmd.Flags().Int64("helm-wait-timeout", 120, "The time in seconds to wait for kubernetes resources to be created when doing a helm install or upgrade")
 	startCmd.Flags().String("kube-config", filepath.Join(homeDir(), ".kube", "config"), "absolute path to the kubeconfig file. Only required if running outside-of-cluster.")
@@ -146,12 +146,14 @@ func buildCRWatcher(kubeCfg *restclient.Config) (*crwatcher.CRWatcher, error) {
 		return nil, err
 	}
 
-	ctlr := getController(resourceClient, k8sClient)
+	internalClient := internalclientset.New(k8sClient.RESTClient())
+
+	ctlr := getController(resourceClient, k8sClient, internalClient)
 
 	return crwatcher.NewCRWatcher(cwCfg, dynClient, ctlr, l)
 }
 
-func getController(resourceClient dynamic.ResourceInterface, k8sClient kubernetes.Interface) crwatcher.ResourceController {
+func getController(resourceClient dynamic.ResourceInterface, k8sClient kubernetes.Interface, internalClient internalclientset.Interface) crwatcher.ResourceController {
 	if viper.GetBool("nop") {
 		logger = logger.With("controller", "print")
 		logger.Info("nop specified, using the print controller")
@@ -161,7 +163,6 @@ func getController(resourceClient dynamic.ResourceInterface, k8sClient kubernete
 		chrt := viper.GetString("helm.chart")
 		hns := viper.GetString("helm.namespace")
 		hrn := viper.GetString("helm.releasePrefix")
-		ht := viper.GetString("helm.tiller")
 		hw := viper.GetBool("helm.wait")
 		hwto := viper.GetInt64("helm.waitTimeout")
 		logger = logger.With("controller", "helm")
@@ -169,11 +170,10 @@ func getController(resourceClient dynamic.ResourceInterface, k8sClient kubernete
 			"helmChart", chrt,
 			"helmNamespace", hns,
 			"helmReleasePrefix", hrn,
-			"helmTiller", ht,
 			"helmWait", hw,
 			"helmWaitTimeout", hwto,
 		)
-		return helmctlr.NewController(chrt, hns, hrn, ht, hw, hwto, logger, resourceClient, k8sClient)
+		return helmctlr.NewController(chrt, hns, hrn, hw, hwto, logger, resourceClient, k8sClient, internalClient)
 	}
 	logger = logger.With("controller", "template")
 	logger.Infow("using template controller for deployment", "templateDir", viper.GetString("templates"))

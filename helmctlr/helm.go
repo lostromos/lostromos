@@ -15,16 +15,27 @@
 package helmctlr
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ghodss/yaml"
 	"github.com/wpengine/lostromos/metrics"
 	"go.uber.org/zap"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/helm/pkg/helm"
-	"k8s.io/helm/pkg/proto/hapi/release"
+	"k8s.io/helm/pkg/chartutil"
+	"k8s.io/helm/pkg/engine"
+	"k8s.io/helm/pkg/kube"
+	cpb "k8s.io/helm/pkg/proto/hapi/chart"
+	"k8s.io/helm/pkg/proto/hapi/services"
+	"k8s.io/helm/pkg/storage"
+	"k8s.io/helm/pkg/storage/driver"
+	"k8s.io/helm/pkg/tiller"
+	"k8s.io/helm/pkg/tiller/environment"
+	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 )
 
 var defaultNS = "default"
@@ -32,19 +43,21 @@ var defaultNS = "default"
 // Controller is a crwatcher.ResourceController that works with Helm to deploy
 // helm charts into K8s providing a CustomResource as value data to the charts
 type Controller struct {
-	ChartDir       string         // path to dir where the Helm chart is located
-	Helm           helm.Interface // Helm for talking with helm
-	Namespace      string         // Default namespace to deploy into. If empty it will default to "default"
-	ReleaseName    string         // Prefix for the helm release name. Will look like ReleaseName-CR_Name
-	Wait           bool           // Whether or not to wait for resources during Update and Install before marking a release successful
-	WaitTimeout    int64          // time in seconds to wait for kubernetes resources to be created before marking a release successful
-	logger         *zap.SugaredLogger
-	kubeClient     kubernetes.Interface
-	resourceClient dynamic.ResourceInterface
+	ChartDir         string // path to dir where the Helm chart is located
+	Namespace        string // Default namespace to deploy into. If empty it will default to "default"
+	ReleaseName      string // Prefix for the helm release name. Will look like ReleaseName-CR_Name
+	Wait             bool   // Whether or not to wait for resources during Update and Install before marking a release successful
+	WaitTimeout      int64  // time in seconds to wait for kubernetes resources to be created before marking a release successful
+	logger           *zap.SugaredLogger
+	kubeClient       kubernetes.Interface
+	resourceClient   dynamic.ResourceInterface
+	internalClient   internalclientset.Interface // tiller uses internalclientset instead of client-go
+	tillerKubeClient environment.KubeClient      // tiller-specific kubernnetes client
+	storage          *storage.Storage
 }
 
 // NewController will return a configured Helm Controller
-func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logger *zap.SugaredLogger, resourceClient dynamic.ResourceInterface, kubeClient kubernetes.Interface) *Controller {
+func NewController(chartDir, ns, rn string, wait bool, waitto int64, logger *zap.SugaredLogger, resourceClient dynamic.ResourceInterface, kubeClient kubernetes.Interface, internalClient internalclientset.Interface) *Controller {
 	if logger == nil {
 		// If you don't give us a logger, set logger to a nop logger
 		logger = zap.NewNop().Sugar()
@@ -53,15 +66,17 @@ func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logge
 		ns = defaultNS
 	}
 	c := &Controller{
-		Helm:           helm.NewClient(helm.Host(host)),
-		ChartDir:       chartDir,
-		Namespace:      ns,
-		ReleaseName:    rn,
-		Wait:           wait,
-		WaitTimeout:    waitto,
-		resourceClient: resourceClient,
-		kubeClient:     kubeClient,
-		logger:         logger,
+		ChartDir:         chartDir,
+		Namespace:        ns,
+		ReleaseName:      rn,
+		Wait:             wait,
+		WaitTimeout:      waitto,
+		resourceClient:   resourceClient,
+		kubeClient:       kubeClient,
+		internalClient:   internalClient,
+		logger:           logger,
+		storage:          storage.Init(driver.NewMemory()),
+		tillerKubeClient: kube.New(nil),
 	}
 	return c
 }
@@ -111,7 +126,13 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 
 func (c Controller) delete(r *unstructured.Unstructured) error {
 	rlsName := c.releaseName(r)
-	_, err := c.Helm.DeleteRelease(rlsName, helm.DeletePurge(true))
+	tiller := c.tillerRendererForCR(r)
+
+	// TODO: useful status from response?
+	_, err := tiller.UninstallRelease(context.TODO(), &services.UninstallReleaseRequest{
+		Name:  rlsName,
+		Purge: true,
+	})
 	return err
 }
 
@@ -122,23 +143,66 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 	}
 
 	rlsName := c.releaseName(r)
-	if c.releaseExists(rlsName) {
-		_, err = c.Helm.UpdateRelease(
-			rlsName,
-			c.ChartDir,
-			helm.UpdateValueOverrides(cr),
-			helm.UpgradeWait(c.Wait),
-			helm.UpgradeTimeout(c.WaitTimeout))
+
+	tiller := c.tillerRendererForCR(r)
+
+	// load chart
+	chart, err := chartutil.LoadDir(c.ChartDir)
+	if err != nil {
 		return err
 	}
-	_, err = c.Helm.InstallRelease(
-		c.ChartDir,
-		c.Namespace,
-		helm.ReleaseName(rlsName),
-		helm.ValueOverrides(cr),
-		helm.InstallWait(c.Wait),
-		helm.InstallTimeout(c.WaitTimeout))
-	return err
+	release, err := c.storage.Last(rlsName)
+	if err != nil || release == nil {
+		//install release
+		installReq := &services.InstallReleaseRequest{
+			Namespace: r.GetNamespace(),
+			Name:      rlsName,
+			Chart:     chart,
+			Values:    &cpb.Config{Raw: string(cr)},
+			Wait:      c.Wait,
+			Timeout:   c.WaitTimeout,
+		}
+		//TODO: useful status from response?
+		_, err := tiller.InstallRelease(context.TODO(), installReq)
+		if err != nil {
+			return err
+		}
+	} else {
+		//update release
+		updateReq := &services.UpdateReleaseRequest{
+			Name:    rlsName,
+			Chart:   chart,
+			Values:  &cpb.Config{Raw: string(cr)},
+			Wait:    c.Wait,
+			Timeout: c.WaitTimeout,
+		}
+		//TODO: useful status from response?
+		_, err := tiller.UpdateRelease(context.TODO(), updateReq)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// tillerRendererForCR creates a ReleaseServer configured with a rendering engine that adds ownerrefs to rendered assets
+// based on the CR
+func (c Controller) tillerRendererForCR(r *unstructured.Unstructured) *tiller.ReleaseServer {
+	controllerRef := metav1.NewControllerRef(r, r.GroupVersionKind())
+	ownerRefs := []metav1.OwnerReference{
+		*controllerRef,
+	}
+	baseEngine := engine.New()
+	e := NewOwnerRefEngine(baseEngine, ownerRefs)
+	var ey environment.EngineYard = map[string]environment.Engine{
+		environment.GoTplEngine: e,
+	}
+	env := &environment.Environment{
+		EngineYard: ey,
+		Releases:   c.storage,
+		KubeClient: c.tillerKubeClient,
+	}
+	return tiller.NewReleaseServer(env, c.internalClient, false)
 }
 
 func (c Controller) marshallCR(r *unstructured.Unstructured) ([]byte, error) {
@@ -149,33 +213,6 @@ func (c Controller) marshallCR(r *unstructured.Unstructured) ([]byte, error) {
 			"spec":      r.Object["spec"]}}
 
 	return yaml.Marshal(re)
-}
-
-func (c Controller) releaseExists(rlsName string) bool {
-	statuses := []release.Status_Code{
-		release.Status_UNKNOWN,
-		release.Status_DEPLOYED,
-		release.Status_DELETED,
-		release.Status_DELETING,
-		release.Status_FAILED,
-		release.Status_PENDING_INSTALL,
-		release.Status_PENDING_UPGRADE,
-		release.Status_PENDING_ROLLBACK,
-	}
-	r, err := c.Helm.ListReleases(
-		helm.ReleaseListNamespace(c.Namespace),
-		helm.ReleaseListFilter(rlsName),
-		helm.ReleaseListStatuses(statuses),
-	)
-	if err != nil {
-		return false
-	}
-	for _, i := range r.Releases {
-		if i.GetName() == rlsName {
-			return true
-		}
-	}
-	return false
 }
 
 func (c Controller) releaseName(r *unstructured.Unstructured) string {

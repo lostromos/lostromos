@@ -103,7 +103,7 @@ func TestGetControllerReturnsHelmController(t *testing.T) {
 	viper.Set("helm.releasePrefix", prefix)
 	viper.Set("helm.tiller", tiller)
 
-	ctlr := getController(nil, nil).(*helmctlr.Controller)
+	ctlr := getController(nil, nil, nil).(*helmctlr.Controller)
 
 	assert.NotNil(t, ctlr)
 	assert.Equal(t, ctlr.ChartDir, chart)
@@ -118,7 +118,7 @@ func TestGetControllerReturnsTemplateController(t *testing.T) {
 	viper.Set("k8s.config", kubecfg)
 	viper.Set("helm.chart", "")
 
-	ctlr := getController(nil, nil).(*tmplctlr.Controller)
+	ctlr := getController(nil, nil, nil).(*tmplctlr.Controller)
 
 	assert.NotNil(t, ctlr)
 }
