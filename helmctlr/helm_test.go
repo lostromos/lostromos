@@ -160,6 +160,9 @@ func TestResourceAddedHappyPathExists(t *testing.T) {
 		testController.ResourceAdded(newTestResource())
 		testController.ResourceAdded(newTestResource())
 	})
+	release, err := testController.storage.Last(testReleaseName)
+	assert.NoError(t, err)
+	assert.Contains(t, release.Manifest, "ownerReferences:\n  - apiVersion: stable.nicolerenee.io")
 }
 
 // helm Install returns an error
