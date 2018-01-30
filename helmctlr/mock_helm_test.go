@@ -248,3 +248,15 @@ func (_mr *MockInterfaceMockRecorder) RunReleaseTest(arg0 interface{}, arg1 ...i
 	_s := append([]interface{}{arg0}, arg1...)
 	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "RunReleaseTest", reflect.TypeOf((*MockInterface)(nil).RunReleaseTest), _s...)
 }
+
+// PingTiller mocks base method
+func (_m *MockInterface) PingTiller() error {
+	ret := _m.ctrl.Call(_m, "PingTiller")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PingTiller indicates an expected call of PingTiller
+func (_mr *MockInterfaceMockRecorder) PingTiller() *gomock.Call {
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "PingTiller", reflect.TypeOf((*MockInterface)(nil).PingTiller))
+}
