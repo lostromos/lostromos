@@ -16,7 +16,7 @@ deployment. If you are in a different namespace you would use
 ## Version
 
 Helm requires the the tiller and the client be running the same version.
-Currently Lostrómos uses version v2.7.0 of Helm.
+Currently Lostrómos uses version v2.8.0 of Helm.
 
 ## Running outside the cluster
 
