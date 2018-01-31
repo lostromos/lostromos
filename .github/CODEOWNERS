@@ -8,3 +8,6 @@
 
 # These owners are responsible for the continuous integration file
 .travis.yml @nicolerenee @lvaughn @wpdrush21
+
+# These owners are responsible for the Dockerfile
+Dockerfile @nicolerenee @lvaughn @wpdrush21
