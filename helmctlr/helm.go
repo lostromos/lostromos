@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/ghodss/yaml"
+	crw "github.com/wpengine/lostromos/crwatcher"
 	"github.com/wpengine/lostromos/metrics"
 	"go.uber.org/zap"
 
@@ -89,10 +90,13 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	if err := c.installOrUpdate(r); err != nil {
 		metrics.CreateFailures.Inc()
 		c.logger.Errorw("failed to create resource", "error", err, "resource", r.GetName())
+		c.updateCRStatus(r, crw.PhaseFailed, crw.ReasonApplyFailed, err.Error())
 		return
 	}
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
+
+	c.updateCRStatus(r, crw.PhaseApplied, crw.ReasonApplySuccessful, "")
 }
 
 // ResourceDeleted is called when a custom resource is created and will use
@@ -119,9 +123,12 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	if err := c.installOrUpdate(newR); err != nil {
 		metrics.UpdateFailures.Inc()
 		c.logger.Errorw("failed to update resource", "error", err, "resource", newR.GetName())
+		c.updateCRStatus(newR, crw.PhaseFailed, crw.ReasonApplyFailed, err.Error())
 		return
 	}
 	metrics.UpdatedReleases.Inc()
+
+	c.updateCRStatus(newR, crw.PhaseApplied, crw.ReasonApplySuccessful, "")
 }
 
 func (c Controller) delete(r *unstructured.Unstructured) error {
@@ -217,4 +224,10 @@ func (c Controller) marshallCR(r *unstructured.Unstructured) ([]byte, error) {
 
 func (c Controller) releaseName(r *unstructured.Unstructured) string {
 	return fmt.Sprintf("%s-%s", c.ReleaseName, r.GetName())
+}
+
+func (c Controller) updateCRStatus(r *unstructured.Unstructured, phase crw.ResourcePhase, reason crw.ConditionReason, message string) (*unstructured.Unstructured, error) {
+	updatedResource := r.DeepCopy()
+	updatedResource.Object["status"] = crw.SetPhase(crw.StatusFor(r), phase, reason, message)
+	return c.resourceClient.Update(updatedResource)
 }
