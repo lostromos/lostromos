@@ -31,6 +31,7 @@ import (
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/kube"
 	cpb "k8s.io/helm/pkg/proto/hapi/chart"
+	"k8s.io/helm/pkg/proto/hapi/release"
 	"k8s.io/helm/pkg/proto/hapi/services"
 	"k8s.io/helm/pkg/storage"
 	"k8s.io/helm/pkg/storage/driver"
@@ -135,7 +136,6 @@ func (c Controller) delete(r *unstructured.Unstructured) error {
 	rlsName := c.releaseName(r)
 	tiller := c.tillerRendererForCR(r)
 
-	// TODO: useful status from response?
 	_, err := tiller.UninstallRelease(context.TODO(), &services.UninstallReleaseRequest{
 		Name:  rlsName,
 		Purge: true,
@@ -153,13 +153,19 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 
 	tiller := c.tillerRendererForCR(r)
 
+	// make sure we have the latest view of the releases for this CR
+	c.syncReleaseStatus(r)
+
 	// load chart
 	chart, err := chartutil.LoadDir(c.ChartDir)
 	if err != nil {
 		return err
 	}
-	release, err := c.storage.Last(rlsName)
-	if err != nil || release == nil {
+
+	var updatedRelease *release.Release
+	latestRelease, err := c.storage.Last(rlsName)
+
+	if err != nil || latestRelease == nil {
 		//install release
 		installReq := &services.InstallReleaseRequest{
 			Namespace: r.GetNamespace(),
@@ -169,11 +175,11 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 			Wait:      c.Wait,
 			Timeout:   c.WaitTimeout,
 		}
-		//TODO: useful status from response?
-		_, err := tiller.InstallRelease(context.TODO(), installReq)
+		releaseResponse, err := tiller.InstallRelease(context.TODO(), installReq)
 		if err != nil {
 			return err
 		}
+		updatedRelease = releaseResponse.GetRelease()
 	} else {
 		//update release
 		updateReq := &services.UpdateReleaseRequest{
@@ -183,12 +189,18 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 			Wait:    c.Wait,
 			Timeout: c.WaitTimeout,
 		}
-		//TODO: useful status from response?
-		_, err := tiller.UpdateRelease(context.TODO(), updateReq)
+		releaseResponse, err := tiller.UpdateRelease(context.TODO(), updateReq)
 		if err != nil {
 			return err
 		}
+		updatedRelease = releaseResponse.GetRelease()
 	}
+	// write release back to status
+	status, err := crw.StatusFor(r).SetRelease(updatedRelease).ToMap()
+	if err != nil {
+		return err
+	}
+	r.Object["status"] = status
 	return nil
 }
 
@@ -212,6 +224,27 @@ func (c Controller) tillerRendererForCR(r *unstructured.Unstructured) *tiller.Re
 	return tiller.NewReleaseServer(env, c.internalClient, false)
 }
 
+func (c Controller) syncReleaseStatus(r *unstructured.Unstructured) {
+	// if no status, nothing to sync
+	if _, ok := r.Object["status"]; !ok {
+		return
+	}
+
+	status := crw.StatusFor(r)
+
+	// if no release in status yet, nothing to sync
+	if status.Release == nil {
+		return
+	}
+
+	// release already synced, nothing to sync
+	if _, err := c.storage.Get(status.Release.GetName(), status.Release.GetVersion()); err == nil {
+		return
+	}
+
+	c.storage.Create(status.Release)
+}
+
 func (c Controller) marshallCR(r *unstructured.Unstructured) ([]byte, error) {
 	re := map[string]interface{}{
 		"resource": map[string]interface{}{
@@ -228,6 +261,12 @@ func (c Controller) releaseName(r *unstructured.Unstructured) string {
 
 func (c Controller) updateCRStatus(r *unstructured.Unstructured, phase crw.ResourcePhase, reason crw.ConditionReason, message string) (*unstructured.Unstructured, error) {
 	updatedResource := r.DeepCopy()
-	updatedResource.Object["status"] = crw.SetPhase(crw.StatusFor(r), phase, reason, message)
+	status := crw.StatusFor(r)
+	status.SetPhase(phase, reason, message)
+	statusMap, err := status.ToMap()
+	if err != nil {
+		return nil, err
+	}
+	updatedResource.Object["status"] = statusMap
 	return c.resourceClient.Update(updatedResource)
 }

@@ -16,20 +16,21 @@ package helmctlr
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
+
+	"github.com/wpengine/lostromos/crwatcher"
+	"github.com/wpengine/lostromos/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/wpengine/lostromos/metrics"
-	k8sTesting "k8s.io/client-go/testing"
-
-	"os"
-
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicFake "k8s.io/client-go/dynamic/fake"
 	k8sFake "k8s.io/client-go/kubernetes/fake"
+	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/tiller/environment"
 	internalFake "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
@@ -44,17 +45,8 @@ const (
 	crdKind           = "Character"
 )
 
-var mockResourceClient = &dynamicFake.FakeResourceClient{
-	Fake:      &k8sTesting.Fake{},
-	Resource:  schema.GroupVersionResource{Group: crdGroup, Version: crdVersion, Resource: "characters"},
-	Kind:      schema.GroupVersionKind{Group: crdGroup, Version: crdVersion, Kind: crdKind},
-	Namespace: testNamespaceName,
-}
-
-var updateCalled = false
-
-func newTestResource() *unstructured.Unstructured {
-	return &unstructured.Unstructured{
+func newTestResource(t *testing.T, status *crwatcher.CustomResourceStatus) *unstructured.Unstructured {
+	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"kind":       crdKind,
 			"apiVersion": crdGroup + "/" + crdVersion,
@@ -69,11 +61,27 @@ func newTestResource() *unstructured.Unstructured {
 			},
 		},
 	}
+	if status != nil {
+		statusMap, err := status.ToMap()
+		require.NoError(t, err)
+		resource.Object["status"] = statusMap
+	}
+	return resource
 }
 
-func newTestController() *Controller {
-	mockResourceClient.AddReactor("*", "*", func(action k8sTesting.Action) (bool, runtime.Object, error) {
-		updateCalled = true
+type FakeController struct {
+	Controller
+	FakeResourceClient *dynamicFake.FakeResourceClient
+}
+
+func newTestController(t *testing.T) *FakeController {
+	fakeResourceClient := &dynamicFake.FakeResourceClient{
+		Fake:      &k8sTesting.Fake{},
+		Resource:  schema.GroupVersionResource{Group: crdGroup, Version: crdVersion, Resource: "characters"},
+		Kind:      schema.GroupVersionKind{Group: crdGroup, Version: crdVersion, Kind: crdKind},
+		Namespace: testNamespaceName,
+	}
+	fakeResourceClient.AddReactor("*", "*", func(action k8sTesting.Action) (bool, runtime.Object, error) {
 		return true, action.(k8sTesting.UpdateAction).GetObject(), nil
 	})
 
@@ -82,10 +90,20 @@ func newTestController() *Controller {
 
 	fakeK8sClient := k8sFake.NewSimpleClientset()
 	fakeInternalClient := internalFake.NewSimpleClientset()
-	ctlr := NewController("../test/data/helm/chart", testNamespaceName, "lostromostest", false, 30, nil, mockResourceClient, fakeK8sClient, fakeInternalClient)
+	ctlr := NewController("../test/data/helm/chart", testNamespaceName, "lostromostest", false, 30, nil, fakeResourceClient, fakeK8sClient, fakeInternalClient)
 	ctlr.tillerKubeClient = &environment.PrintingKubeClient{Out: file}
 	chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1", "extensions/v1beta1")
-	return ctlr
+	return &FakeController{
+		Controller:         *ctlr,
+		FakeResourceClient: fakeResourceClient,
+	}
+}
+
+func assertEqualPhaseAndReason(t *testing.T, a, b *unstructured.Unstructured) {
+	aStatus := crwatcher.StatusFor(a)
+	bStatus := crwatcher.StatusFor(b)
+	assert.EqualValues(t, aStatus.Phase, bStatus.Phase)
+	assert.EqualValues(t, aStatus.Reason, bStatus.Reason)
 }
 
 func getPromCounterValue(metric string) float64 {
@@ -163,35 +181,62 @@ func TestNewControllerSetsNS(t *testing.T) {
 }
 
 func TestResourceAddedHappyPath(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events:   1,
 		create:   1,
 		releases: 1,
 	}
-	updateCalled = false
 	assertCounters(t, ct, func() {
-		testController.ResourceAdded(newTestResource())
+		in := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
 
-		assert.True(t, updateCalled)
+		testController.ResourceAdded(in)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
 }
 
 // Happy path when resource exists...happens on startup
 func TestResourceAddedHappyPathExists(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events:   2,
 		create:   2,
 		releases: 2,
 	}
-	updateCalled = false
 	assertCounters(t, ct, func() {
-		testController.ResourceAdded(newTestResource())
-		testController.ResourceAdded(newTestResource())
+		in := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
 
-		assert.True(t, updateCalled)
+		testController.ResourceAdded(in)
+		testController.ResourceAdded(in)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[1].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
+
 	release, err := testController.storage.Last(testReleaseName)
 	assert.NoError(t, err)
 	assert.Contains(t, release.Manifest, "ownerReferences:\n  - apiVersion: stable.nicolerenee.io")
@@ -199,91 +244,162 @@ func TestResourceAddedHappyPathExists(t *testing.T) {
 
 // helm Install returns an error
 func TestResourceAddedInstallErrors(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events:    1,
 		createErr: 1,
 	}
 	chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1")
-	updateCalled = false
 	assertCounters(t, ct, func() {
-		testController.ResourceAdded(newTestResource())
+		in := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseFailed, Reason: crwatcher.ReasonApplyFailed})
 
-		assert.True(t, updateCalled)
+		testController.ResourceAdded(in)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.Nil(t, crwatcher.StatusFor(updated).Release)
 	})
 	chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1", "extensions/v1beta1")
 }
 
 func TestResourceDeleted(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events:   1,
 		delete:   1,
 		releases: -1,
 	}
-	testController.ResourceAdded(newTestResource())
+	testController.ResourceAdded(newTestResource(t, nil))
 	assertCounters(t, ct, func() {
-		testController.ResourceDeleted(newTestResource())
-
-		assert.True(t, updateCalled)
+		testController.ResourceDeleted(newTestResource(t, nil))
 	})
 }
 
 func TestResourceDeletedWhenDeleteFails(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events:    1,
 		deleteErr: 1,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceDeleted(newTestResource())
+		testController.ResourceDeleted(newTestResource(t, nil))
 	})
 }
 
 func TestResourceUpdatedHappyPath(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events: 1,
 		update: 1,
 	}
-	updateCalled = false
 	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(newTestResource(), newTestResource())
+		in := newTestResource(t, nil)
+		updatedIn := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
 
-		assert.True(t, updateCalled)
+		testController.ResourceUpdated(in, updatedIn)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
 }
 
 // Happy path when resource exists...happens on startup
 func TestResourceUpdatedHappyPathExists(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 	ct := counterTest{
 		events: 2,
 		update: 2,
 	}
-	updateCalled = false
 	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(newTestResource(), newTestResource())
-		testController.ResourceUpdated(newTestResource(), newTestResource())
+		in := newTestResource(t, nil)
+		updatedIn := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
 
-		assert.True(t, updateCalled)
+		testController.ResourceUpdated(in, updatedIn)
+		testController.ResourceUpdated(in, updatedIn)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[1].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
 }
 
 // helm Install returns an error
 func TestResourceUpdatedInstallErrors(t *testing.T) {
-	testController := newTestController()
+	testController := newTestController(t)
 
 	ct := counterTest{
 		events:    1,
 		updateErr: 1,
 	}
-	updateCalled = false
 	assertCounters(t, ct, func() {
 		chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1")
-		testController.ResourceUpdated(newTestResource(), newTestResource())
+		testController.ResourceUpdated(newTestResource(t, nil), newTestResource(t, nil))
 		chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1", "extensions/v1beta1")
-
-		assert.True(t, updateCalled)
 	})
+}
+
+// if helm controller is used to load a resource, the release state should be read from the CR
+// this ensures a consistant view of releases through restarts or multiple deployments
+func TestResourceUpdatedReusesStoredRelease(t *testing.T) {
+	testController1 := newTestController(t)
+
+	in := newTestResource(t, nil)
+	out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
+
+	testController1.ResourceAdded(in)
+
+	// Update was called
+	updateAction, ok := testController1.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+	require.True(t, ok)
+	assert.True(t, updateAction.Matches("update", testController1.FakeResourceClient.Resource.Resource))
+
+	// Update was called with correct new status
+	updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+	require.NoError(t, err)
+	updated := &unstructured.Unstructured{Object: updatedRaw}
+	assertEqualPhaseAndReason(t, updated, out)
+	require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+
+	originalStatus := crwatcher.StatusFor(updated)
+	require.NotNil(t, originalStatus.Release)
+
+	// new controller to simulate restart or a separate node
+	testController2 := newTestController(t)
+	testController2.ResourceAdded(updated)
+
+	// Added resource with a release status should've updated the internal storage with the release
+	parsedRelease, err := testController2.storage.Last(testReleaseName)
+	require.NoError(t, err)
+	require.NotNil(t, parsedRelease)
 }
