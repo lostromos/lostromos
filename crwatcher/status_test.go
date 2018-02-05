@@ -21,6 +21,7 @@ import (
 	cr "github.com/wpengine/lostromos/crwatcher"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 const (
@@ -31,7 +32,8 @@ const (
 var now = metav1.Now()
 
 func TestSetPhase(t *testing.T) {
-	newStatus := cr.SetPhase(newTestStatus(), cr.PhaseApplying, cr.ReasonCustomResourceUpdated, "working on it")
+	newStatus, err := newTestStatus().SetPhase(cr.PhaseApplying, cr.ReasonCustomResourceUpdated, "working on it").ToMap()
+	assert.NoError(t, err)
 
 	assert.Equal(t, string(cr.PhaseApplying), newStatus["phase"])
 	assert.Equal(t, string(cr.ReasonCustomResourceUpdated), newStatus["reason"])
@@ -43,7 +45,7 @@ func TestSetPhase(t *testing.T) {
 func TestStatusForEmpty(t *testing.T) {
 	status := cr.StatusFor(newTestResource())
 
-	assert.Equal(t, cr.CustomResourceStatus{}, status)
+	assert.Equal(t, &cr.CustomResourceStatus{}, status)
 }
 
 func TestStatusForFilled(t *testing.T) {
@@ -54,6 +56,13 @@ func TestStatusForFilled(t *testing.T) {
 	assert.EqualValues(t, newTestStatus().Phase, status.Phase)
 	assert.EqualValues(t, newTestStatus().Reason, status.Reason)
 	assert.EqualValues(t, newTestStatus().Message, status.Message)
+}
+
+func TestSetRelease(t *testing.T) {
+	releaseName := "TestRelease"
+	release := release.Release{Name: releaseName}
+	newStatus := newTestStatus().SetRelease(&release)
+	assert.EqualValues(t, newStatus.Release.Name, releaseName)
 }
 
 func newTestResource() *unstructured.Unstructured {
@@ -74,8 +83,8 @@ func newTestResource() *unstructured.Unstructured {
 	}
 }
 
-func newTestStatus() cr.CustomResourceStatus {
-	return cr.CustomResourceStatus{
+func newTestStatus() *cr.CustomResourceStatus {
+	return &cr.CustomResourceStatus{
 		Phase:              cr.PhaseApplied,
 		Reason:             cr.ReasonApplySuccessful,
 		Message:            "some message",

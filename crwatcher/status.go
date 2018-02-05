@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 type ResourcePhase string
@@ -42,41 +43,51 @@ const (
 )
 
 type CustomResourceStatus struct {
-	Phase              ResourcePhase   `json:"phase"`
-	Reason             ConditionReason `json:"reason,omitempty"`
-	Message            string          `json:"message,omitempty"`
-	LastUpdateTime     metav1.Time     `json:"lastUpdateTime,omitempty"`
-	LastTransitionTime metav1.Time     `json:"lastTransitionTime,omitempty"`
+	Release            *release.Release `json:"release"`
+	Phase              ResourcePhase    `json:"phase"`
+	Reason             ConditionReason  `json:"reason,omitempty"`
+	Message            string           `json:"message,omitempty"`
+	LastUpdateTime     metav1.Time      `json:"lastUpdateTime,omitempty"`
+	LastTransitionTime metav1.Time      `json:"lastTransitionTime,omitempty"`
+}
+
+func (s *CustomResourceStatus) ToMap() (map[string]interface{}, error) {
+	var out map[string]interface{}
+	jsonObj, err := json.Marshal(&s)
+	if err != nil {
+		return nil, err
+	}
+	json.Unmarshal(jsonObj, &out)
+	return out, nil
 }
 
 // SetPhase takes a custom resource status and returns the updated status, without updating the resource in the cluster.
-func SetPhase(status CustomResourceStatus, phase ResourcePhase, reason ConditionReason, message string) map[string]interface{} {
-	status.LastUpdateTime = metav1.Now()
-	if status.Phase != phase {
-		status.Phase = phase
-		status.LastTransitionTime = metav1.Now()
+func (s *CustomResourceStatus) SetPhase(phase ResourcePhase, reason ConditionReason, message string) *CustomResourceStatus {
+	s.LastUpdateTime = metav1.Now()
+	if s.Phase != phase {
+		s.Phase = phase
+		s.LastTransitionTime = metav1.Now()
 	}
-	status.Message = message
-	status.Reason = reason
+	s.Message = message
+	s.Reason = reason
+	return s
+}
 
-	var out map[string]interface{}
-	jsonObj, err := json.Marshal(&status)
-	if err != nil {
-		return map[string]interface{}{}
-	}
-	json.Unmarshal(jsonObj, &out)
-	return out
+// SetRelease takes a release object and adds or updates the release on the status object
+func (s *CustomResourceStatus) SetRelease(release *release.Release) *CustomResourceStatus {
+	s.Release = release
+	return s
 }
 
 // StatusFor safely returns a typed status block from a custom resource.
-func StatusFor(cr *unstructured.Unstructured) CustomResourceStatus {
+func StatusFor(cr *unstructured.Unstructured) *CustomResourceStatus {
 	switch cr.Object["status"].(type) {
 	case CustomResourceStatus:
-		return cr.Object["status"].(CustomResourceStatus)
+		return cr.Object["status"].(*CustomResourceStatus)
 	case map[string]interface{}:
-		var status CustomResourceStatus
+		var status *CustomResourceStatus
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(cr.Object["status"].(map[string]interface{}), &status); err != nil {
-			return CustomResourceStatus{
+			return &CustomResourceStatus{
 				Phase:   PhaseFailed,
 				Reason:  ReasonApplyFailed,
 				Message: err.Error(),
@@ -84,6 +95,6 @@ func StatusFor(cr *unstructured.Unstructured) CustomResourceStatus {
 		}
 		return status
 	default:
-		return CustomResourceStatus{}
+		return &CustomResourceStatus{}
 	}
 }
