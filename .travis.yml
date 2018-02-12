@@ -3,9 +3,9 @@ sudo: required
 env:
   global:
   - CHANGE_MINIKUBE_NONE_USER=true
-  - KUBERNETES_VERSION=v1.8.0
-  - MINIKUBE_VERSION=v0.24.1
-  - HELM_VERSION=v2.7.2
+  - KUBERNETES_VERSION=v1.9.0
+  - MINIKUBE_VERSION=v0.25.0
+  - HELM_VERSION=v2.8.0
 go:
 - 1.9.x
 - master
