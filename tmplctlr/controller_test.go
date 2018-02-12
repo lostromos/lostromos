@@ -29,6 +29,7 @@ import (
 	"github.com/wpengine/lostromos/metrics"
 	"github.com/wpengine/lostromos/tmplctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"time"
 )
 
 var (
@@ -102,7 +103,7 @@ func getPromGaugeValue(metric string) float64 {
 	return 0
 }
 
-// Used in assertCounters to mark the expected change in counters
+// Used in assertMetrics to mark the expected change in counters
 // values default to 0 so you only have to specify the changes
 type counterTest struct {
 	create    int
@@ -115,7 +116,21 @@ type counterTest struct {
 	releases  int
 }
 
-func assertCounters(t *testing.T, c counterTest, f func()) {
+// Used in assertMetrics to mark the expected change in timestamps
+// values default function is 'less than' current timestamp
+func timestampTestMap() map[string]func(float64, float64) bool {
+	timestamps := []string{
+		"releases_last_create_timestamp_utc_seconds",
+		"releases_last_update_timestamp_utc_seconds",
+		"releases_last_delete_timestamp_utc_seconds"}
+	timestampMetrics := make(map[string]func(float64, float64) bool)
+	for _, t := range timestamps {
+		timestampMetrics[t] = lessThan
+	}
+	return timestampMetrics
+}
+
+func assertMetrics(t *testing.T, c counterTest, f func(), tsMap map[string]func(float64, float64) bool) {
 	metrics.ManagedReleases.Set(float64(10))
 	csb := getPromCounterValue("releases_create_total")
 	ceb := getPromCounterValue("releases_create_error_total")
@@ -126,8 +141,10 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 	eb := getPromCounterValue("releases_events_total")
 	rb := getPromGaugeValue("releases_total")
 
+	currTimestamp := float64(time.Now().UTC().UnixNano()) / 1000000000
 	f()
 
+	// assert counters
 	csa := getPromCounterValue("releases_create_total")
 	cea := getPromCounterValue("releases_create_error_total")
 	dsa := getPromCounterValue("releases_delete_total")
@@ -144,6 +161,24 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 	assert.Equal(t, float64(c.updateErr), uea-ueb, "change in releases_update_error_total incorrect")
 	assert.Equal(t, float64(c.events), ea-eb, "change in releases_events_total incorrect")
 	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
+
+	//assert timestamps
+	for metric, f := range tsMap {
+		assertTimestamp(t, metric, f, currTimestamp)
+	}
+}
+
+func assertTimestamp(t *testing.T, metric_name string, f func(float64, float64) bool, ts float64) {
+	metric_ts := getPromGaugeValue(metric_name)
+	assert.True(t, f(metric_ts, ts), "%s timestamp did not update correctly", metric_name)
+}
+
+func greaterThan(a float64, b float64) bool {
+	return a > b
+}
+
+func lessThan(a float64, b float64) bool {
+	return a < b
 }
 
 func TestResourceAddedHappyPath(t *testing.T) {
@@ -163,9 +198,10 @@ func TestResourceAddedHappyPath(t *testing.T) {
 		create:   1,
 		releases: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { c.ResourceAdded(testResource) }, tsExpected)
 }
 
 func TestResourceAddedApplyFails(t *testing.T) {
@@ -184,9 +220,9 @@ func TestResourceAddedApplyFails(t *testing.T) {
 		events:    1,
 		createErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { c.ResourceAdded(testResource) }, tsExpected)
 }
 
 func TestResourceAddedTemplatingFails(t *testing.T) {
@@ -203,9 +239,9 @@ func TestResourceAddedTemplatingFails(t *testing.T) {
 		events:    1,
 		createErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { c.ResourceAdded(testResource) }, tsExpected)
 }
 
 func TestResourceDeletedHappyPath(t *testing.T) {
@@ -225,9 +261,10 @@ func TestResourceDeletedHappyPath(t *testing.T) {
 		delete:   1,
 		releases: -1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceDeleted(testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_delete_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { c.ResourceDeleted(testResource) }, tsExpected)
 }
 
 func TestResourceDeletedApplyFails(t *testing.T) {
@@ -246,9 +283,9 @@ func TestResourceDeletedApplyFails(t *testing.T) {
 		events:    1,
 		deleteErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceDeleted(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { c.ResourceDeleted(testResource) }, tsExpected)
 }
 
 func TestResourceDeletedTemplatingFails(t *testing.T) {
@@ -265,9 +302,9 @@ func TestResourceDeletedTemplatingFails(t *testing.T) {
 		events:    1,
 		deleteErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceDeleted(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { c.ResourceDeleted(testResource) }, tsExpected)
 }
 
 func TestResourceUpdatedHappyPath(t *testing.T) {
@@ -286,9 +323,10 @@ func TestResourceUpdatedHappyPath(t *testing.T) {
 		events: 1,
 		update: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_update_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { c.ResourceUpdated(testResource, testResource) }, tsExpected)
 }
 
 func TestResourceUpdatedApplyFails(t *testing.T) {
@@ -307,7 +345,7 @@ func TestResourceUpdatedApplyFails(t *testing.T) {
 		events:    1,
 		updateErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		c.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { c.ResourceUpdated(testResource, testResource) }, tsExpected)
 }

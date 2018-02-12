@@ -16,6 +16,7 @@ package printctlr
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/wpengine/lostromos/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -34,6 +35,7 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
 	metrics.TotalEvents.Inc()
+	metrics.LastSuccessfulCreate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 // ResourceUpdated receives both an the old version and current version of a
@@ -42,6 +44,7 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	fmt.Printf("CR changed: %s\n", newR.GetName())
 	metrics.UpdatedReleases.Inc()
 	metrics.TotalEvents.Inc()
+	metrics.LastSuccessfulUpdate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 // ResourceDeleted will receive a custom resource when it is deleted and
@@ -51,4 +54,5 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
 	metrics.TotalEvents.Inc()
+	metrics.LastSuccessfulDelete.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }

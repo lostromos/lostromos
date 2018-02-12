@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/wpengine/lostromos/metrics"
 	"github.com/wpengine/lostromos/tmpl"
@@ -60,6 +61,7 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	}
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
+	metrics.LastSuccessfulCreate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 // ResourceUpdated is called when a custom resource is updated or during a
@@ -74,6 +76,7 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 		return
 	}
 	metrics.UpdatedReleases.Inc()
+	metrics.LastSuccessfulUpdate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 // ResourceDeleted is called when a custom resource is created and will generate
@@ -89,6 +92,7 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	}
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
+	metrics.LastSuccessfulDelete.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 func (c Controller) apply(r *unstructured.Unstructured) (output string, err error) {
