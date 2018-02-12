@@ -12,29 +12,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helmctlr_test
+package helmctlr
 
 import (
-	"errors"
+	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/wpengine/lostromos/crwatcher"
+	"github.com/wpengine/lostromos/metrics"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/wpengine/lostromos/helmctlr"
-	"github.com/wpengine/lostromos/metrics"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/helm/pkg/proto/hapi/release"
-	"k8s.io/helm/pkg/proto/hapi/services"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	dynamicFake "k8s.io/client-go/dynamic/fake"
+	k8sFake "k8s.io/client-go/kubernetes/fake"
+	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/helm/pkg/chartutil"
+	"k8s.io/helm/pkg/tiller/environment"
+	internalFake "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
 )
 
-var (
-	testController  = helmctlr.NewController("../test/data/chart", "lostromos-test", "lostromostest", "0", false, 30, nil)
-	testReleaseName = "lostromostest-dory"
-	testResource    = &unstructured.Unstructured{
+const (
+	testNamespaceName = "lostromos-test"
+	testName          = "dory"
+	testReleaseName   = "lostromostest-dory"
+	crdGroup          = "stable.nicolerenee.io"
+	crdVersion        = "v1alpha1"
+	crdKind           = "Character"
+)
+
+func newTestResource(t *testing.T, status *crwatcher.CustomResourceStatus) *unstructured.Unstructured {
+	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
+			"kind":       crdKind,
+			"apiVersion": crdGroup + "/" + crdVersion,
 			"metadata": map[string]interface{}{
-				"name": "dory",
+				"name":      testName,
+				"namespace": testNamespaceName,
 			},
 			"spec": map[string]interface{}{
 				"Name": "Dory",
@@ -43,7 +61,50 @@ var (
 			},
 		},
 	}
-)
+	if status != nil {
+		statusMap, err := status.ToMap()
+		require.NoError(t, err)
+		resource.Object["status"] = statusMap
+	}
+	return resource
+}
+
+type FakeController struct {
+	Controller
+	FakeResourceClient *dynamicFake.FakeResourceClient
+}
+
+func newTestController(t *testing.T) *FakeController {
+	fakeResourceClient := &dynamicFake.FakeResourceClient{
+		Fake:      &k8sTesting.Fake{},
+		Resource:  schema.GroupVersionResource{Group: crdGroup, Version: crdVersion, Resource: "characters"},
+		Kind:      schema.GroupVersionKind{Group: crdGroup, Version: crdVersion, Kind: crdKind},
+		Namespace: testNamespaceName,
+	}
+	fakeResourceClient.AddReactor("*", "*", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		return true, action.(k8sTesting.UpdateAction).GetObject(), nil
+	})
+
+	file, _ := ioutil.TempFile(os.TempDir(), "lostromostest")
+	defer os.Remove(file.Name())
+
+	fakeK8sClient := k8sFake.NewSimpleClientset()
+	fakeInternalClient := internalFake.NewSimpleClientset()
+	ctlr := NewController("../test/data/helm/chart", testNamespaceName, "lostromostest", false, 30, nil, fakeResourceClient, fakeK8sClient, fakeInternalClient)
+	ctlr.tillerKubeClient = &environment.PrintingKubeClient{Out: file}
+	chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1", "extensions/v1beta1")
+	return &FakeController{
+		Controller:         *ctlr,
+		FakeResourceClient: fakeResourceClient,
+	}
+}
+
+func assertEqualPhaseAndReason(t *testing.T, a, b *unstructured.Unstructured) {
+	aStatus := crwatcher.StatusFor(a)
+	bStatus := crwatcher.StatusFor(b)
+	assert.EqualValues(t, aStatus.Phase, bStatus.Phase)
+	assert.EqualValues(t, aStatus.Reason, bStatus.Reason)
+}
 
 func getPromCounterValue(metric string) float64 {
 	mf, _ := prometheus.DefaultGatherer.Gather()
@@ -110,267 +171,235 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 }
 
 func TestNewControllerSetsNS(t *testing.T) {
-	c := helmctlr.NewController("chartDir", "", "release", "127.0.0.3:4321", false, 120, nil)
+	c := NewController("chartDir", "", "release", false, 120, nil, nil, nil, nil)
 	assert.Equal(t, "default", c.Namespace, "Namespace should be set to 'default' when not provided")
 	assert.Equal(t, "chartDir", c.ChartDir)
 	assert.Equal(t, "release", c.ReleaseName)
 
-	c = helmctlr.NewController("chartDir", "my_ns", "release", "127.0.0.3:4321", false, 120, nil)
+	c = NewController("chartDir", "my_ns", "release", false, 120, nil, nil, nil, nil)
 	assert.Equal(t, "my_ns", c.Namespace, "Namespace should be set to the value provided")
 }
 
 func TestResourceAddedHappyPath(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
-	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
-
+	testController := newTestController(t)
 	ct := counterTest{
 		events:   1,
 		create:   1,
 		releases: 1,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
+		in := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
+
+		testController.ResourceAdded(in)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
 }
 
 // Happy path when resource exists...happens on startup
 func TestResourceAddedHappyPathExists(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	res := &services.ListReleasesResponse{
-		Count: int64(1),
-		Releases: []*release.Release{
-			{
-				Name: testReleaseName,
-			}}}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
-	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...)
+	testController := newTestController(t)
 	ct := counterTest{
-		events:   1,
-		create:   1,
-		releases: 1,
+		events:   2,
+		create:   2,
+		releases: 2,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
-}
+		in := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
 
-// List returns an error but install still works
-func TestResourceAddedListErrorStillSuccessful(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, errors.New("Broken"))
-	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+		testController.ResourceAdded(in)
+		testController.ResourceAdded(in)
 
-	ct := counterTest{
-		events:   1,
-		create:   1,
-		releases: 1,
-	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[1].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
+
+	release, err := testController.storage.Last(testReleaseName)
+	assert.NoError(t, err)
+	assert.Contains(t, release.Manifest, "ownerReferences:\n  - apiVersion: stable.nicolerenee.io")
 }
 
 // helm Install returns an error
 func TestResourceAddedInstallErrors(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
-	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
-
+	testController := newTestController(t)
 	ct := counterTest{
 		events:    1,
 		createErr: 1,
 	}
+	chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1")
 	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
-}
+		in := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseFailed, Reason: crwatcher.ReasonApplyFailed})
 
-// helm update returns an error
-func TestResourceAddedUpdateErrors(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	res := &services.ListReleasesResponse{
-		Count: int64(1),
-		Releases: []*release.Release{
-			{
-				Name: testReleaseName,
-			}}}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
-	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
-	ct := counterTest{
-		events:    1,
-		createErr: 1,
-	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
+		testController.ResourceAdded(in)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.Nil(t, crwatcher.StatusFor(updated).Release)
 	})
+	chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1", "extensions/v1beta1")
 }
 
 func TestResourceDeleted(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	deleteOpts := []interface{}{gomock.Any()}
-	mockHelm.EXPECT().DeleteRelease(testReleaseName, deleteOpts...)
-
+	testController := newTestController(t)
 	ct := counterTest{
 		events:   1,
 		delete:   1,
 		releases: -1,
 	}
-
+	testController.ResourceAdded(newTestResource(t, nil))
 	assertCounters(t, ct, func() {
-		testController.ResourceDeleted(testResource)
+		testController.ResourceDeleted(newTestResource(t, nil))
 	})
 }
 
 func TestResourceDeletedWhenDeleteFails(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	deleteOpts := []interface{}{gomock.Any()}
-	mockHelm.EXPECT().DeleteRelease(testReleaseName, deleteOpts...).Return(nil, errors.New("delete failed"))
+	testController := newTestController(t)
 	ct := counterTest{
 		events:    1,
 		deleteErr: 1,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceDeleted(testResource)
+		testController.ResourceDeleted(newTestResource(t, nil))
 	})
 }
 
 func TestResourceUpdatedHappyPath(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
-	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
-
+	testController := newTestController(t)
 	ct := counterTest{
 		events: 1,
 		update: 1,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
+		in := newTestResource(t, nil)
+		updatedIn := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
+
+		testController.ResourceUpdated(in, updatedIn)
+
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
 }
 
 // Happy path when resource exists...happens on startup
 func TestResourceUpdatedHappyPathExists(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	res := &services.ListReleasesResponse{
-		Count: int64(1),
-		Releases: []*release.Release{
-			{
-				Name: testReleaseName,
-			}}}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
-	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...)
+	testController := newTestController(t)
 	ct := counterTest{
-		events: 1,
-		update: 1,
+		events: 2,
+		update: 2,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
-}
+		in := newTestResource(t, nil)
+		updatedIn := newTestResource(t, nil)
+		out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
 
-// List returns an error but install still works
-func TestResourceUpdatedListErrorStillSuccessful(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, errors.New("Broken"))
-	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+		testController.ResourceUpdated(in, updatedIn)
+		testController.ResourceUpdated(in, updatedIn)
 
-	ct := counterTest{
-		events: 1,
-		update: 1,
-	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
+		// Update was called
+		updateAction, ok := testController.FakeResourceClient.Actions()[1].(k8sTesting.UpdateAction)
+		require.True(t, ok)
+		assert.True(t, updateAction.Matches("update", testController.FakeResourceClient.Resource.Resource))
+
+		// Update was called with correct new status
+		updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+		require.NoError(t, err)
+		updated := &unstructured.Unstructured{Object: updatedRaw}
+		assertEqualPhaseAndReason(t, updated, out)
+		require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+		require.NotNil(t, crwatcher.StatusFor(updated).Release)
 	})
 }
 
 // helm Install returns an error
 func TestResourceUpdatedInstallErrors(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
-	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
+	testController := newTestController(t)
 
 	ct := counterTest{
 		events:    1,
 		updateErr: 1,
 	}
 	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
+		chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1")
+		testController.ResourceUpdated(newTestResource(t, nil), newTestResource(t, nil))
+		chartutil.DefaultVersionSet = chartutil.NewVersionSet("v1", "extensions/v1beta1")
 	})
 }
 
-// helm update returns an error
-func TestResourceUpdatedUpdateErrors(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockHelm := NewMockInterface(mockCtrl)
-	testController.Helm = mockHelm
-	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	res := &services.ListReleasesResponse{
-		Count: int64(1),
-		Releases: []*release.Release{
-			{
-				Name: testReleaseName,
-			}}}
-	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
-	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
-	ct := counterTest{
-		events:    1,
-		updateErr: 1,
-	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
+// if helm controller is used to load a resource, the release state should be read from the CR
+// this ensures a consistant view of releases through restarts or multiple deployments
+func TestResourceUpdatedReusesStoredRelease(t *testing.T) {
+	testController1 := newTestController(t)
+
+	in := newTestResource(t, nil)
+	out := newTestResource(t, &crwatcher.CustomResourceStatus{Phase: crwatcher.PhaseApplied, Reason: crwatcher.ReasonApplySuccessful})
+
+	testController1.ResourceAdded(in)
+
+	// Update was called
+	updateAction, ok := testController1.FakeResourceClient.Actions()[0].(k8sTesting.UpdateAction)
+	require.True(t, ok)
+	assert.True(t, updateAction.Matches("update", testController1.FakeResourceClient.Resource.Resource))
+
+	// Update was called with correct new status
+	updatedRaw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(updateAction.GetObject())
+	require.NoError(t, err)
+	updated := &unstructured.Unstructured{Object: updatedRaw}
+	assertEqualPhaseAndReason(t, updated, out)
+	require.EqualValues(t, out.Object["spec"], updatedRaw["spec"])
+
+	originalStatus := crwatcher.StatusFor(updated)
+	require.NotNil(t, originalStatus.Release)
+
+	// new controller to simulate restart or a separate node
+	testController2 := newTestController(t)
+	testController2.ResourceAdded(updated)
+
+	// Added resource with a release status should've updated the internal storage with the release
+	parsedRelease, err := testController2.storage.Last(testReleaseName)
+	require.NoError(t, err)
+	require.NotNil(t, parsedRelease)
 }
