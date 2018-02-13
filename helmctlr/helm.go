@@ -91,13 +91,17 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	if err := c.installOrUpdate(r); err != nil {
 		metrics.CreateFailures.Inc()
 		c.logger.Errorw("failed to create resource", "error", err, "resource", r.GetName())
-		c.updateCRStatus(r, crw.PhaseFailed, crw.ReasonApplyFailed, err.Error())
+		if _, statusErr := c.updateCRStatus(r, crw.PhaseFailed, crw.ReasonApplyFailed, err.Error()); statusErr != nil {
+			c.logger.Errorw("failed to update resource status", "error", statusErr, "resource", r.GetName())
+		}
 		return
 	}
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
 
-	c.updateCRStatus(r, crw.PhaseApplied, crw.ReasonApplySuccessful, "")
+	if _, statusErr := c.updateCRStatus(r, crw.PhaseApplied, crw.ReasonApplySuccessful, ""); statusErr != nil {
+		c.logger.Errorw("failed to update resource status", "error", statusErr, "resource", r.GetName())
+	}
 }
 
 // ResourceDeleted is called when a custom resource is created and will use
@@ -124,12 +128,16 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	if err := c.installOrUpdate(newR); err != nil {
 		metrics.UpdateFailures.Inc()
 		c.logger.Errorw("failed to update resource", "error", err, "resource", newR.GetName())
-		c.updateCRStatus(newR, crw.PhaseFailed, crw.ReasonApplyFailed, err.Error())
+		if _, statusErr := c.updateCRStatus(newR, crw.PhaseFailed, crw.ReasonApplyFailed, err.Error()); statusErr != nil {
+			c.logger.Errorw("failed to update resource status", "error", statusErr, "resource", newR.GetName())
+		}
 		return
 	}
 	metrics.UpdatedReleases.Inc()
 
-	c.updateCRStatus(newR, crw.PhaseApplied, crw.ReasonApplySuccessful, "")
+	if _, statusErr := c.updateCRStatus(newR, crw.PhaseApplied, crw.ReasonApplySuccessful, ""); statusErr != nil {
+		c.logger.Errorw("failed to update resource status", "error", statusErr, "resource", newR.GetName())
+	}
 }
 
 func (c Controller) delete(r *unstructured.Unstructured) error {
@@ -175,9 +183,9 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 			Wait:      c.Wait,
 			Timeout:   c.WaitTimeout,
 		}
-		releaseResponse, err := tiller.InstallRelease(context.TODO(), installReq)
-		if err != nil {
-			return err
+		releaseResponse, installErr := tiller.InstallRelease(context.TODO(), installReq)
+		if installErr != nil {
+			return installErr
 		}
 		updatedRelease = releaseResponse.GetRelease()
 	} else {
@@ -189,9 +197,9 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 			Wait:    c.Wait,
 			Timeout: c.WaitTimeout,
 		}
-		releaseResponse, err := tiller.UpdateRelease(context.TODO(), updateReq)
-		if err != nil {
-			return err
+		releaseResponse, updateErr := tiller.UpdateRelease(context.TODO(), updateReq)
+		if updateErr != nil {
+			return updateErr
 		}
 		updatedRelease = releaseResponse.GetRelease()
 	}
@@ -242,7 +250,9 @@ func (c Controller) syncReleaseStatus(r *unstructured.Unstructured) {
 		return
 	}
 
-	c.storage.Create(status.Release)
+	if err := c.storage.Create(status.Release); err != nil {
+		c.logger.Errorw("failed to sync release status", "error", err, "resource", r.GetName())
+	}
 }
 
 func (c Controller) marshallCR(r *unstructured.Unstructured) ([]byte, error) {

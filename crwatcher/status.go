@@ -23,25 +23,31 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
+// ResourcePhase is added to the status of the CR, signalling the current state of resource creation
 type ResourcePhase string
 
 const (
-	PhaseNone     ResourcePhase = ""
+	// PhaseApplying - chart is currently being applied
 	PhaseApplying ResourcePhase = "Applying"
-	PhaseApplied  ResourcePhase = "Applied"
-	PhaseFailed   ResourcePhase = "Failed"
+	// PhaseApplied - chart has been successfully applied
+	PhaseApplied ResourcePhase = "Applied"
+	// PhaseFailed - chart could not be applied
+	PhaseFailed ResourcePhase = "Failed"
 )
 
+// ConditionReason is added to the status of the CR, explaining why the CR is in a certain phase
 type ConditionReason string
 
 const (
-	ReasonUnknown               ConditionReason = "Unknown"
-	ReasonCustomResourceAdded   ConditionReason = "CustomResourceAdded"
+	// ReasonCustomResourceUpdated - Resource has been updated
 	ReasonCustomResourceUpdated ConditionReason = "CustomResourceUpdated"
-	ReasonApplySuccessful       ConditionReason = "ApplySuccessful"
-	ReasonApplyFailed           ConditionReason = "ApplyFailed"
+	// ReasonApplySuccessful - chart application succeeded
+	ReasonApplySuccessful ConditionReason = "ApplySuccessful"
+	// ReasonApplyFailed - chart application failed
+	ReasonApplyFailed ConditionReason = "ApplyFailed"
 )
 
+// CustomResourceStatus is written to the CR to indicate release status and resource creation
 type CustomResourceStatus struct {
 	Release            *release.Release `json:"release"`
 	Phase              ResourcePhase    `json:"phase"`
@@ -51,13 +57,17 @@ type CustomResourceStatus struct {
 	LastTransitionTime metav1.Time      `json:"lastTransitionTime,omitempty"`
 }
 
+// ToMap converts a typed CustomResourceStatus to an untyped map[string]interface{} for use in unstructured
 func (s *CustomResourceStatus) ToMap() (map[string]interface{}, error) {
 	var out map[string]interface{}
 	jsonObj, err := json.Marshal(&s)
 	if err != nil {
 		return nil, err
 	}
-	json.Unmarshal(jsonObj, &out)
+	err = json.Unmarshal(jsonObj, &out)
+	if err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 

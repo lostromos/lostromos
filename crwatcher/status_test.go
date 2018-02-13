@@ -26,7 +26,6 @@ import (
 
 const (
 	testNamespaceName = "lostromos-test"
-	testReleaseName   = "lostromostest-dory"
 )
 
 var now = metav1.Now()
