@@ -79,7 +79,6 @@ func init() {
 	viperBindFlag("helm.chart", startCmd.Flags().Lookup("helm-chart"))
 	viperBindFlag("helm.namespace", startCmd.Flags().Lookup("helm-ns"))
 	viperBindFlag("helm.releasePrefix", startCmd.Flags().Lookup("helm-prefix"))
-	viperBindFlag("helm.tiller", startCmd.Flags().Lookup("helm-tiller"))
 	viperBindFlag("helm.wait", startCmd.Flags().Lookup("helm-wait"))
 	viperBindFlag("helm.waitTimeout", startCmd.Flags().Lookup("helm-wait-timeout"))
 	viperBindFlag("k8s.config", startCmd.Flags().Lookup("kube-config"))
