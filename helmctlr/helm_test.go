@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	testController  = helmctlr.NewController("../test/data/chart", "lostromos-test", "lostromostest", "0", false, 30, nil, nil)
+	testController  = helmctlr.NewController("../test/data/chart", "lostromos-test", "lostromostest", "0", false, 30, nil, nil, nil)
 	testReleaseName = "lostromostest-dory"
 	testResource    = &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -110,12 +110,12 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 }
 
 func TestNewControllerSetsNS(t *testing.T) {
-	c := helmctlr.NewController("chartDir", "", "release", "127.0.0.3:4321", false, 120, nil, nil)
+	c := helmctlr.NewController("chartDir", "", "release", "127.0.0.3:4321", false, 120, nil, nil, nil)
 	assert.Equal(t, "default", c.Namespace, "Namespace should be set to 'default' when not provided")
 	assert.Equal(t, "chartDir", c.ChartDir)
 	assert.Equal(t, "release", c.ReleaseName)
 
-	c = helmctlr.NewController("chartDir", "my_ns", "release", "127.0.0.3:4321", false, 120, nil, nil)
+	c = helmctlr.NewController("chartDir", "my_ns", "release", "127.0.0.3:4321", false, 120, nil, nil, nil)
 	assert.Equal(t, "my_ns", c.Namespace, "Namespace should be set to the value provided")
 }
 
