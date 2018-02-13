@@ -21,9 +21,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/wpengine/lostromos/printctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	restclient "k8s.io/client-go/rest"
 )
 
@@ -41,11 +44,18 @@ func (c testLogger) Error(err error) {
 
 func TestNewCRWatcher(t *testing.T) {
 	kubeCfg := &restclient.Config{}
+	kubeCfg.ContentConfig.GroupVersion = &schema.GroupVersion{
+		Group:   "test.lostromos.k8s",
+		Version: "v1alpha1",
+	}
 	cfg := &Config{PluralName: "test"}
 
-	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{}, testLogger{})
+	dynClient, err := dynamic.NewClient(kubeCfg)
+	require.NoError(t, err)
 
-	assert.Nil(t, err)
+	cw, err := NewCRWatcher(cfg, dynClient, printctlr.Controller{}, testLogger{})
+	require.NoError(t, err)
+
 	assert.Equal(t, cfg, cw.Config)
 	assert.NotNil(t, cw.resource)
 	assert.NotNil(t, cw.handler)
@@ -54,25 +64,21 @@ func TestNewCRWatcher(t *testing.T) {
 	assert.NotNil(t, cw.logger)
 }
 
-func TestNewCRWatcherReturnsNilOnError(t *testing.T) {
-	kubeCfg := &restclient.Config{}
-	kubeCfg.Host = "http:///"
-	cfg := &Config{PluralName: "test"}
-
-	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{}, testLogger{})
-
-	assert.Nil(t, cw)
-	assert.NotNil(t, err)
-	assert.Equal(t, "host must be a URL or a host:port pair: \"http:///\"", err.Error())
-}
-
 func TestLogKubeError(t *testing.T) {
 	kubeCfg := &restclient.Config{}
+	kubeCfg.ContentConfig.GroupVersion = &schema.GroupVersion{
+		Group:   "test.lostromos.k8s",
+		Version: "v1alpha1",
+	}
 	cfg := &Config{PluralName: "test"}
 	res := &logResult{}
 	lgr := &testLogger{res: res}
-	cw, err := NewCRWatcher(cfg, kubeCfg, printctlr.Controller{}, lgr)
-	assert.Nil(t, err)
+
+	dynClient, err := dynamic.NewClient(kubeCfg)
+	require.NoError(t, err)
+
+	cw, err := NewCRWatcher(cfg, dynClient, printctlr.Controller{}, lgr)
+	require.NoError(t, err)
 	assert.NotNil(t, cw.logger)
 
 	cw.logKubeError(errors.New("test"))

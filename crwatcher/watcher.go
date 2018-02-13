@@ -21,11 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -76,22 +74,12 @@ type ErrorLogger interface {
 }
 
 // NewCRWatcher builds a CRWatcher
-func NewCRWatcher(cfg *Config, kubeCfg *restclient.Config, rc ResourceController, l ErrorLogger) (*CRWatcher, error) {
+func NewCRWatcher(cfg *Config, dc dynamic.Interface, rc ResourceController, l ErrorLogger) (*CRWatcher, error) {
 	cw := &CRWatcher{
 		Config: cfg,
 		logger: l,
 	}
 
-	kubeCfg.ContentConfig.GroupVersion = &schema.GroupVersion{
-		Group:   cfg.Group,
-		Version: cfg.Version,
-	}
-	kubeCfg.APIPath = "apis"
-	dynClient, err := dynamic.NewClient(kubeCfg)
-	if err != nil {
-		return nil, err
-	}
-	dc := dynClient
 	cw.setupResource(dc)
 	cw.setupHandler(rc)
 	cw.setupController()
@@ -153,7 +141,7 @@ func (cw *CRWatcher) update(con ResourceController, oldR *unstructured.Unstructu
 	}
 }
 
-func (cw *CRWatcher) setupResource(dc *dynamic.Client) {
+func (cw *CRWatcher) setupResource(dc dynamic.Interface) {
 	apiResource := &metav1.APIResource{
 		Name:       cw.Config.PluralName,
 		Namespaced: cw.Config.Namespace != metav1.NamespaceNone,
