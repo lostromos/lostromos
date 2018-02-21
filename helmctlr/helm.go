@@ -16,6 +16,7 @@ package helmctlr
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/wpengine/lostromos/metrics"
@@ -72,6 +73,7 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	}
 	metrics.CreatedReleases.Inc()
 	metrics.ManagedReleases.Inc()
+	metrics.LastSuccessfulCreate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 // ResourceDeleted is called when a custom resource is created and will use
@@ -88,6 +90,7 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	}
 	metrics.DeletedReleases.Inc()
 	metrics.ManagedReleases.Dec()
+	metrics.LastSuccessfulDelete.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 // ResourceUpdated is called when a custom resource is updated or during a
@@ -101,6 +104,7 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 		return
 	}
 	metrics.UpdatedReleases.Inc()
+	metrics.LastSuccessfulUpdate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
 func (c Controller) delete(r *unstructured.Unstructured) error {

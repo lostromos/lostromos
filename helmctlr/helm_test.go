@@ -17,6 +17,7 @@ package helmctlr_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
@@ -78,7 +79,18 @@ type counterTest struct {
 	releases  int
 }
 
-func assertCounters(t *testing.T, c counterTest, f func()) {
+func timestampTestMap() map[string]func(float64, float64) bool {
+	timestamps := []string{"releases_last_create_timestamp_utc_seconds",
+		"releases_last_update_timestamp_utc_seconds",
+		"releases_last_delete_timestamp_utc_seconds"}
+	timestampMetrics := make(map[string]func(float64, float64) bool)
+	for _, t := range timestamps {
+		timestampMetrics[t] = lessThan
+	}
+	return timestampMetrics
+}
+
+func assertMetrics(t *testing.T, c counterTest, f func(), tsMap map[string]func(float64, float64) bool) {
 	metrics.ManagedReleases.Set(float64(10))
 	csb := getPromCounterValue("releases_create_total")
 	ceb := getPromCounterValue("releases_create_error_total")
@@ -89,8 +101,10 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 	eb := getPromCounterValue("releases_events_total")
 	rb := getPromGaugeValue("releases_total")
 
+	currTimestamp := float64(time.Now().UTC().UnixNano()) / 1000000000
 	f()
 
+	// assert counters
 	csa := getPromCounterValue("releases_create_total")
 	cea := getPromCounterValue("releases_create_error_total")
 	dsa := getPromCounterValue("releases_delete_total")
@@ -107,6 +121,24 @@ func assertCounters(t *testing.T, c counterTest, f func()) {
 	assert.Equal(t, float64(c.updateErr), uea-ueb, "change in releases_update_error_total incorrect")
 	assert.Equal(t, float64(c.events), ea-eb, "change in releases_events_total incorrect")
 	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
+
+	//assert timestamps
+	for metric, f := range tsMap {
+		assertTimestamp(t, metric, f, currTimestamp)
+	}
+}
+
+func assertTimestamp(t *testing.T, metric_name string, f func(float64, float64) bool, ts float64) {
+	metric_ts := getPromGaugeValue(metric_name)
+	assert.True(t, f(metric_ts, ts), "%s timestamp did not update correctly", metric_name)
+}
+
+func greaterThan(a float64, b float64) bool {
+	return a > b
+}
+
+func lessThan(a float64, b float64) bool {
+	return a < b
 }
 
 func TestNewControllerSetsNS(t *testing.T) {
@@ -134,9 +166,11 @@ func TestResourceAddedHappyPath(t *testing.T) {
 		create:   1,
 		releases: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
+
 }
 
 // Happy path when resource exists...happens on startup
@@ -155,14 +189,16 @@ func TestResourceAddedHappyPathExists(t *testing.T) {
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...)
+
 	ct := counterTest{
 		events:   1,
 		create:   1,
 		releases: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
 }
 
 // List returns an error but install still works
@@ -181,9 +217,10 @@ func TestResourceAddedListErrorStillSuccessful(t *testing.T) {
 		create:   1,
 		releases: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
 }
 
 // helm Install returns an error
@@ -201,9 +238,9 @@ func TestResourceAddedInstallErrors(t *testing.T) {
 		events:    1,
 		createErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
 }
 
 // helm update returns an error
@@ -222,13 +259,14 @@ func TestResourceAddedUpdateErrors(t *testing.T) {
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
+
 	ct := counterTest{
 		events:    1,
 		createErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceAdded(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
 }
 
 func TestResourceDeleted(t *testing.T) {
@@ -244,10 +282,10 @@ func TestResourceDeleted(t *testing.T) {
 		delete:   1,
 		releases: -1,
 	}
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_delete_timestamp_utc_seconds"] = greaterThan
 
-	assertCounters(t, ct, func() {
-		testController.ResourceDeleted(testResource)
-	})
+	assertMetrics(t, ct, func() { testController.ResourceDeleted(testResource) }, tsExpected)
 }
 
 func TestResourceDeletedWhenDeleteFails(t *testing.T) {
@@ -257,13 +295,14 @@ func TestResourceDeletedWhenDeleteFails(t *testing.T) {
 	testController.Helm = mockHelm
 	deleteOpts := []interface{}{gomock.Any()}
 	mockHelm.EXPECT().DeleteRelease(testReleaseName, deleteOpts...).Return(nil, errors.New("delete failed"))
+
 	ct := counterTest{
 		events:    1,
 		deleteErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceDeleted(testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { testController.ResourceDeleted(testResource) }, tsExpected)
 }
 
 func TestResourceUpdatedHappyPath(t *testing.T) {
@@ -280,9 +319,10 @@ func TestResourceUpdatedHappyPath(t *testing.T) {
 		events: 1,
 		update: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_update_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceUpdated(testResource, testResource) }, tsExpected)
 }
 
 // Happy path when resource exists...happens on startup
@@ -301,13 +341,15 @@ func TestResourceUpdatedHappyPathExists(t *testing.T) {
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...)
+
 	ct := counterTest{
 		events: 1,
 		update: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_update_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceUpdated(testResource, testResource) }, tsExpected)
 }
 
 // List returns an error but install still works
@@ -325,9 +367,10 @@ func TestResourceUpdatedListErrorStillSuccessful(t *testing.T) {
 		events: 1,
 		update: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_update_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceUpdated(testResource, testResource) }, tsExpected)
 }
 
 // helm Install returns an error
@@ -345,9 +388,9 @@ func TestResourceUpdatedInstallErrors(t *testing.T) {
 		events:    1,
 		updateErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { testController.ResourceUpdated(testResource, testResource) }, tsExpected)
 }
 
 // helm update returns an error
@@ -366,11 +409,12 @@ func TestResourceUpdatedUpdateErrors(t *testing.T) {
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
+
 	ct := counterTest{
 		events:    1,
 		updateErr: 1,
 	}
-	assertCounters(t, ct, func() {
-		testController.ResourceUpdated(testResource, testResource)
-	})
+	tsExpected := timestampTestMap()
+
+	assertMetrics(t, ct, func() { testController.ResourceUpdated(testResource, testResource) }, tsExpected)
 }

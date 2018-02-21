@@ -18,11 +18,12 @@ kubectl.
 """
 
 import os
+import re
+import time
 import requests
 import signal
 import subprocess
 
-from time import sleep
 from unittest import TestCase
 
 _LOSTROMOS_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "lostromos")
@@ -161,7 +162,7 @@ class HelmIntegrationTest(TestCase):
         )
         print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
         # Sleep for a bit until the tiller is available
-        sleep(15)
+        time.sleep(15)
         self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
         self.__wait_for_helm_to_fail(15)
 
@@ -196,7 +197,7 @@ class HelmIntegrationTest(TestCase):
                 self.assertIn("STATUS: FAILED", output.decode("utf-8"))
                 return
             except AssertionError:
-                sleep(1)
+                time.sleep(1)
                 timeout -= seconds_to_sleep
         raise AssertionError("Helm release not marked as failed")
 
@@ -245,16 +246,31 @@ class TemplateIntegrationTestWithFiltering(TestCase):
         print("Started Lostromos with PID: {}".format(self.__lostromos_process.pid))
 
         self.__wait_for_lostromos_start()
+
+        current_ts = time.time()
         self.__kubectl.apply(_THINGS_CUSTOM_RESOURCE_FILE)
         self.__check_metrics(2, 2, 2, 0, 0)
+        self.__check_timestamp("releases_last_create_timestamp_utc_seconds", current_ts, 2)
+
+        current_ts = time.time()
         self.__kubectl.apply(_NEMO_CUSTOM_RESOURCE_FILE)
         self.__check_metrics(3, 3, 3, 0, 0)
+        self.__check_timestamp("releases_last_create_timestamp_utc_seconds", current_ts, 3)
+
+        current_ts = time.time()
         self.__kubectl.apply(_NEMO_UPDATE_CUSTOM_RESOURCE_FILE)
         self.__check_metrics(4, 3, 3, 0, 1)
+        self.__check_timestamp("releases_last_update_timestamp_utc_seconds", current_ts, 4)
+
+        current_ts = time.time()
         self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE, True)
         self.__check_metrics(6, 1, 3, 2, 1)
+        self.__check_timestamp("releases_last_delete_timestamp_utc_seconds", current_ts, 6)
+
+        current_ts = time.time()
         self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE, True)
         self.__check_metrics(7, 0, 3, 3, 1)
+        self.__check_timestamp("releases_last_delete_timestamp_utc_seconds", current_ts, 7)
 
         self.__lostromos_process.kill()
         self.__lostromos_process = subprocess.Popen(
@@ -304,7 +320,7 @@ class TemplateIntegrationTestWithFiltering(TestCase):
             metrics_response.raise_for_status()
             metrics = metrics_response.text.split("\n")
             if "releases_events_total {}".format(events) not in metrics:
-                sleep(1)
+                time.sleep(1)
                 attempts -= 1
             else:
                 self.assertIn("releases_total {}".format(managed), metrics)
@@ -313,6 +329,30 @@ class TemplateIntegrationTestWithFiltering(TestCase):
                 self.assertIn("releases_update_total {}".format(updated), metrics)
                 return
 
+        raise AssertionError("Failed to see the expected number of events. {}".format(metrics))
+
+    def __check_timestamp(self, metric, timestamp, num_events):
+        """
+        Assert timestamp for metric is greater than timestamp passed in
+        :param metric: name of metric to check
+        :param timestamp: timestamp to compare metric
+        :param num_events: expected number of events
+        """
+        attempts = 10
+        while attempts > 0:
+            metrics_response = requests.get(self.__metrics_url)
+            metrics_response.raise_for_status()
+            metrics = metrics_response.text.split("\n")
+            if "releases_events_total {}".format(num_events) not in metrics:
+                time.sleep(1)
+                attempts -= 1
+            else:
+                for line in metrics:
+                    if re.match(metric, line):
+                        metric_ts = line.split(" ")[1]
+                        self.assertTrue(float(metric_ts) > timestamp)
+                        return
+                raise AssertionError("Failed to find metric {}".format(metric))
         raise AssertionError("Failed to see the expected number of events. {}".format(metrics))
 
     def __wait_for_lostromos_start(self):
@@ -330,7 +370,7 @@ class TemplateIntegrationTestWithFiltering(TestCase):
                 status_response.raise_for_status()
                 self.assertTrue(status_response.json()["success"])
             except requests.exceptions.ConnectionError:
-                sleep(seconds_to_sleep)
+                time.sleep(seconds_to_sleep)
                 seconds_to_wait -= seconds_to_sleep
             return
         raise AssertionError("Failed to start Lostromos.")

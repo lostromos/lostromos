@@ -34,6 +34,13 @@ var (
 		Namespace: "releases",
 	})
 
+	// LastSuccessfulCreate is a timestamp in UTC seconds of the last successful create event
+	LastSuccessfulCreate = prometheus.NewGauge(prometheus.GaugeOpts{
+		Help:      "A Unix timestamp (UTC) in seconds of the last successful create event",
+		Name:      "last_create_timestamp_utc_seconds",
+		Namespace: "releases",
+	})
+
 	// DeleteFailures is a metric for the number of times a delete by this operator
 	DeleteFailures = prometheus.NewCounter(prometheus.CounterOpts{
 		Help:      "The number of failed delete events",
@@ -45,6 +52,13 @@ var (
 	DeletedReleases = prometheus.NewCounter(prometheus.CounterOpts{
 		Help:      "The number of successful delete events",
 		Name:      "delete_total",
+		Namespace: "releases",
+	})
+
+	// LastSuccessfulDelete is a timestamp in UTC seconds of the last successful delete event
+	LastSuccessfulDelete = prometheus.NewGauge(prometheus.GaugeOpts{
+		Help:      "A Unix timestamp (UTC) in seconds of the last successful delete event",
+		Name:      "last_delete_timestamp_utc_seconds",
 		Namespace: "releases",
 	})
 
@@ -69,6 +83,13 @@ var (
 		Namespace: "releases",
 	})
 
+	// LastSuccessfulUpdate is a timestamp in UTC seconds of the last successful update event
+	LastSuccessfulUpdate = prometheus.NewGauge(prometheus.GaugeOpts{
+		Help:      "A Unix timestamp (UTC) in seconds of the last successful update event",
+		Name:      "last_update_timestamp_utc_seconds",
+		Namespace: "releases",
+	})
+
 	// TotalEvents is a metric for the number of events that have been handled by this operator
 	TotalEvents = prometheus.NewCounter(prometheus.CounterOpts{
 		Help:      "The number of events (create/delete/updates) processed by this operator",
@@ -80,10 +101,13 @@ var (
 func init() {
 	prometheus.MustRegister(CreatedReleases)
 	prometheus.MustRegister(CreateFailures)
+	prometheus.MustRegister(LastSuccessfulCreate)
 	prometheus.MustRegister(DeletedReleases)
 	prometheus.MustRegister(DeleteFailures)
+	prometheus.MustRegister(LastSuccessfulDelete)
 	prometheus.MustRegister(ManagedReleases)
 	prometheus.MustRegister(UpdatedReleases)
 	prometheus.MustRegister(UpdateFailures)
+	prometheus.MustRegister(LastSuccessfulUpdate)
 	prometheus.MustRegister(TotalEvents)
 }
