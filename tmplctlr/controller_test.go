@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,7 +30,6 @@ import (
 	"github.com/wpengine/lostromos/metrics"
 	"github.com/wpengine/lostromos/tmplctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"time"
 )
 
 var (
