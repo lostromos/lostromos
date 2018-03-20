@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/wpengine/lostromos.svg?branch=master)](https://travis-ci.org/wpengine/lostromos)
 [![codecov](https://codecov.io/gh/wpengine/lostromos/branch/master/graph/badge.svg)](https://codecov.io/gh/wpengine/lostromos)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wpengine/lostromos)](https://goreportcard.com/report/github.com/wpengine/lostromos)
 
 # Lostrómos
 
