@@ -74,7 +74,7 @@ func initConfig() {
 	} else {
 		// Use default config file /etc/lostromos.yaml
 		viper.AddConfigPath("/etc")
-		viper.SetConfigName("lostromos.yaml")
+		viper.SetConfigName("lostromos")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
