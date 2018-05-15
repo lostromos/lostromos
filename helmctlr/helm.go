@@ -118,6 +118,17 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 	if err != nil {
 		return err
 	}
+
+	// If chart entry is present in CR, then download the chart from repo to local dir
+	// on any error, fallback to local chart already present on the disk
+	if chartRef := GetChartRef(r); chartRef != "" {
+		if chartDir, chartErr := c.GetRemoteChart(chartRef); chartErr == nil {
+			c.ChartDir = chartDir
+		} else {
+			return chartErr
+		}
+	}
+
 	rlsName := c.releaseName(r)
 	if c.releaseExists(rlsName) {
 		_, err = c.Helm.UpdateRelease(

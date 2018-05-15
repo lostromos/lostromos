@@ -64,3 +64,34 @@ spec:
 * `{{ .Values.resource.spec.name }}` would return "Nemo"
 * `{{ .Values.resource.spec.from }}` would return "Finding Nemo"
 * `{{ .Values.resource.spec.by }}` would return "Disney"
+
+### Using custom repo for charts
+
+For Lostrómos to be able to pull the charts from a remote repository, the remote
+repository should be pre-configured in the tiller (one option is to add it
+using ```helm repo add```).
+
+```sh
+helm repo add foonemo https://username:password@repo.example.com
+```
+
+Add chart entry to the annotations, using the same repo name that was used to add,
+for the chart to be downloaded from the remote repo.<br/>
+Chart entry format: ```<repo name>/<chart name>:[semver]```
+
+```yaml
+
+apiVersion: stable.nicolerenee.io/v1
+kind: Character
+metadata:
+  name: nemo
+  annotations:
+    chart: foonemo/helloworld:1.2r345
+spec:
+  Name: Nemo
+  From: Finding Nemo
+  By: Disney
+
+```
+
+Note: Set $HELM_HOME env should be set after initializing the repo.

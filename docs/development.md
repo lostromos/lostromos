@@ -47,9 +47,8 @@ through Minikube. We test that
 2. We can verify an update has occurred.
 3. We are alerted when resources are being deleted.
 
-These tests cover the create/update/delete use cases that Lostrómos allows. To
-run that testing in Travis we have to set up Minikube via this [script](../test/scripts/install_minikube.sh)
-before actually running the integration tests.
+These tests cover the create/update/delete use cases that Lostrómos allows. Steps
+to run the integration testing in Travis is found here: [travis.yaml](../.travis.yml)
 
 #### Testing Docker Image
 
@@ -62,7 +61,9 @@ urls for use in the tests.
 
 To run integration tests locally you need to run `minikube start` to get a
 Minikube context, and then run `make integration-test`. This is assuming you
-have installed the necessary python requirements via `make install-python-deps`.
+have installed the necessary python requirements via `make install-python-deps`
+and install nosetests: `sudo pip install nose`. Ignore error messages like
+`TILLER...connect: connection refused` when running integration tests locally.
 
 ## <a name="ci"></a>Continuous Integration
 

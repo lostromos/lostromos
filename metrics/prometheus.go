@@ -34,6 +34,20 @@ var (
 		Namespace: "releases",
 	})
 
+	// RemoteRepoReleases is a metric for the number of releases created through remote repo
+	RemoteRepoReleases = prometheus.NewCounter(prometheus.CounterOpts{
+		Help:      "The number of remote repo releases",
+		Name:      "remote_repo_total",
+		Namespace: "releases",
+	})
+
+	// RemoteRepoError is a metric for the number of failures while accessing remote repo
+	RemoteRepoError = prometheus.NewCounter(prometheus.CounterOpts{
+		Help:      "The number of remote repo releases",
+		Name:      "remote_repo_error_total",
+		Namespace: "releases",
+	})
+
 	// LastSuccessfulCreate is a timestamp in UTC seconds of the last successful create event
 	LastSuccessfulCreate = prometheus.NewGauge(prometheus.GaugeOpts{
 		Help:      "A Unix timestamp (UTC) in seconds of the last successful create event",
@@ -100,6 +114,8 @@ var (
 
 func init() {
 	prometheus.MustRegister(CreatedReleases)
+	prometheus.MustRegister(RemoteRepoReleases)
+	prometheus.MustRegister(RemoteRepoError)
 	prometheus.MustRegister(CreateFailures)
 	prometheus.MustRegister(LastSuccessfulCreate)
 	prometheus.MustRegister(DeletedReleases)
