@@ -1,0 +1,13 @@
+---
+
+apiVersion: stable.nicolerenee.io/v1
+kind: Character
+metadata:
+  name: nemo
+  annotations:
+    chart: incubator/vault:0.7.1
+spec:
+  Name: Nemo
+  From: Finding Nemo
+  By: Disney
+  For: Reasons

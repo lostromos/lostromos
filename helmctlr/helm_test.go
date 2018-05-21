@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"os"
+	"path/filepath"
+
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -36,6 +39,21 @@ var (
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name": "dory",
+			},
+			"spec": map[string]interface{}{
+				"Name": "Dory",
+				"From": "Finding Nemo",
+				"By":   "Disney",
+			},
+		},
+	}
+	testRemoteRepoResource = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name": "dory",
+				"annotations": map[string]interface{}{
+					"chart": "test/helloworld:0.1.0",
+				},
 			},
 			"spec": map[string]interface{}{
 				"Name": "Dory",
@@ -69,14 +87,16 @@ func getPromGaugeValue(metric string) float64 {
 // Used in assertCounters to mark the expected change in counters
 // values default to 0 so you only have to specify the changes
 type counterTest struct {
-	create    int
-	createErr int
-	delete    int
-	deleteErr int
-	update    int
-	updateErr int
-	events    int
-	releases  int
+	create        int
+	createErr     int
+	delete        int
+	deleteErr     int
+	update        int
+	updateErr     int
+	events        int
+	releases      int
+	remoteRepo    int
+	remoteRepoErr int
 }
 
 func timestampTestMap() map[string]func(float64, float64) bool {
@@ -100,6 +120,8 @@ func assertMetrics(t *testing.T, c counterTest, f func(), tsMap map[string]func(
 	ueb := getPromCounterValue("releases_update_error_total")
 	eb := getPromCounterValue("releases_events_total")
 	rb := getPromGaugeValue("releases_total")
+	rrb := getPromCounterValue("releases_remote_repo_total")
+	rreb := getPromCounterValue("releases_remote_repo_error_total")
 
 	currTimestamp := float64(time.Now().UTC().UnixNano()) / 1000000000
 	f()
@@ -113,6 +135,8 @@ func assertMetrics(t *testing.T, c counterTest, f func(), tsMap map[string]func(
 	uea := getPromCounterValue("releases_update_error_total")
 	ea := getPromCounterValue("releases_events_total")
 	ra := getPromGaugeValue("releases_total")
+	rra := getPromCounterValue("releases_remote_repo_total")
+	rrea := getPromCounterValue("releases_remote_repo_error_total")
 	assert.Equal(t, float64(c.create), csa-csb, "change in releases_create_total incorrect")
 	assert.Equal(t, float64(c.createErr), cea-ceb, "change in releases_create_error_total incorrect")
 	assert.Equal(t, float64(c.delete), dsa-dsb, "change in releases_delete_total incorrect")
@@ -121,6 +145,8 @@ func assertMetrics(t *testing.T, c counterTest, f func(), tsMap map[string]func(
 	assert.Equal(t, float64(c.updateErr), uea-ueb, "change in releases_update_error_total incorrect")
 	assert.Equal(t, float64(c.events), ea-eb, "change in releases_events_total incorrect")
 	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
+	assert.Equal(t, float64(c.remoteRepo), rra-rrb, "change in remote_repo_total incorrect")
+	assert.Equal(t, float64(c.remoteRepoErr), rrea-rreb, "change in remote_repo_error_total incorrect")
 
 	//assert timestamps
 	for metric, f := range tsMap {
@@ -170,7 +196,47 @@ func TestResourceAddedHappyPath(t *testing.T) {
 	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
 
 	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
+}
 
+func TestResourceRemoteRepoAddedHappyPath(t *testing.T) {
+	repoSrv := SetupMockServer(t)
+	defer repoSrv.Cleanup()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockHelm := NewMockInterface(mockCtrl)
+	testController.Helm = mockHelm
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
+	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
+	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
+	chartDir := filepath.Join(os.TempDir(), "test/helloworld", helmctlr.Hash("chart-0.1.0.tgz"))
+	mockHelm.EXPECT().InstallRelease(chartDir, testController.Namespace, installOpts...)
+
+	ct := counterTest{
+		events:     1,
+		create:     1,
+		releases:   1,
+		remoteRepo: 1,
+	}
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testRemoteRepoResource) }, tsExpected)
+}
+
+func TestResourceRemoteRepoAddedFailureCase(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockHelm := NewMockInterface(mockCtrl)
+	testController.Helm = mockHelm
+
+	ct := counterTest{
+		events:        1,
+		createErr:     1,
+		remoteRepoErr: 1,
+	}
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testRemoteRepoResource) }, timestampTestMap())
 }
 
 // Happy path when resource exists...happens on startup

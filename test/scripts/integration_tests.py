@@ -29,12 +29,13 @@ from unittest import TestCase
 _LOSTROMOS_EXE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "lostromos")
 _TEST_DATA_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 _LOSTROMOS_CONFIGURATION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "config.yaml")
-_CUSTOM_RESOURCE_DEFINION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "crd.yml")
+_CUSTOM_RESOURCE_DEFINITION_FILE = os.path.join(_TEST_DATA_DIRECTORY, "crd.yml")
 _THINGS_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things.yml")
 _THINGS_FILTERED_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things_filter.yml")
 _THINGS_FILTERED_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_things_filter_update.yml")
 _NEMO_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo.yml")
 _NEMO_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo_update.yml")
+_REMOTE_REPO_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_remote_repo.yml")
 
 
 class Kubectl(object):
@@ -141,7 +142,7 @@ class HelmIntegrationTest(TestCase):
         self.__helm = Helm()
         self.__helm.init()
         self.__kubectl.apply(_TEST_DATA_DIRECTORY + "/tiller_nodeport_service.yml")
-        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINITION_FILE)
         self.__kubectl.delete(_NEMO_CUSTOM_RESOURCE_FILE)
         self.__minikube_ip = subprocess.check_output(["minikube", "ip"]).strip().decode('utf-8')
 
@@ -170,7 +171,7 @@ class HelmIntegrationTest(TestCase):
         """
         Kill the lostromos process if it was created.
         """
-        self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINITION_FILE)
         self.__helm.delete("lostromos-nemo")
         if self.__lostromos_process:
             self.__lostromos_process.send_signal(signal.SIGINT)
@@ -215,7 +216,7 @@ class TemplateIntegrationTestWithFiltering(TestCase):
         self.__kubectl = Kubectl()
 
         # Ensure the CRD is there and there are no characters, for a clean starting point
-        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__kubectl.apply(_CUSTOM_RESOURCE_DEFINITION_FILE)
         self.__kubectl.delete(_THINGS_CUSTOM_RESOURCE_FILE)
         self.__kubectl.delete(_THINGS_FILTERED_CUSTOM_RESOURCE_FILE)
         self.__kubectl.delete(_THINGS_FILTERED_UPDATE_CUSTOM_RESOURCE_FILE)
@@ -272,6 +273,37 @@ class TemplateIntegrationTestWithFiltering(TestCase):
         self.__check_metrics(7, 0, 3, 3, 1)
         self.__check_timestamp("releases_last_delete_timestamp_utc_seconds", current_ts, 7)
 
+        # initialize helm remote repo and set HELM_HOME env
+        # helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com/
+        subprocess.call(
+            [
+                "helm",
+                "repo",
+                "add",
+                "incubator",
+                "https://kubernetes-charts-incubator.storage.googleapis.com/"
+            ]
+        )
+
+        # export HELM_HOME=$(helm home)
+        helm_home = subprocess.check_output(
+            [
+                "helm",
+                "home"
+            ]
+        )
+        os.environ['HELM_HOME'] = str(helm_home).strip()
+
+        current_ts = time.time()
+        self.__kubectl.apply(_REMOTE_REPO_CUSTOM_RESOURCE_FILE)
+        self.__check_metrics(8, 1, 4, 3, 1)
+        self.__check_timestamp("releases_last_create_timestamp_utc_seconds", current_ts, 8)
+
+        current_ts = time.time()
+        self.__kubectl.delete(_REMOTE_REPO_CUSTOM_RESOURCE_FILE, True)
+        self.__check_metrics(9, 0, 4, 4, 1)
+        self.__check_timestamp("releases_last_delete_timestamp_utc_seconds", current_ts, 9)
+
         self.__lostromos_process.kill()
         self.__lostromos_process = subprocess.Popen(
             [
@@ -298,7 +330,7 @@ class TemplateIntegrationTestWithFiltering(TestCase):
         """
         Kill the lostromos process if it was created.
         """
-        self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINION_FILE)
+        self.__kubectl.delete(_CUSTOM_RESOURCE_DEFINITION_FILE)
         if self.__lostromos_process:
             self.__lostromos_process.send_signal(signal.SIGINT)
 
