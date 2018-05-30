@@ -198,6 +198,27 @@ func TestResourceAddedHappyPath(t *testing.T) {
 	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
 }
 
+func TestResourceAddedNoPriorReleaseHappyPath(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockHelm := NewMockInterface(mockCtrl)
+	testController.Helm = mockHelm
+	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
+	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, nil)
+	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
+	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+
+	ct := counterTest{
+		events:   1,
+		create:   1,
+		releases: 1,
+	}
+	tsExpected := timestampTestMap()
+	tsExpected["releases_last_create_timestamp_utc_seconds"] = greaterThan
+
+	assertMetrics(t, ct, func() { testController.ResourceAdded(testResource) }, tsExpected)
+}
+
 func TestResourceRemoteRepoAddedHappyPath(t *testing.T) {
 	repoSrv := SetupMockServer(t)
 	defer repoSrv.Cleanup()
