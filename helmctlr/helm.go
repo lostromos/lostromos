@@ -175,7 +175,7 @@ func (c Controller) releaseExists(rlsName string) bool {
 		helm.ReleaseListFilter(rlsName),
 		helm.ReleaseListStatuses(statuses),
 	)
-	if err != nil {
+	if err != nil || r == nil {
 		return false
 	}
 	for _, i := range r.Releases {
