@@ -31,7 +31,7 @@ var defaultNS = "default"
 // Controller is a crwatcher.ResourceController that works with Helm to deploy
 // helm charts into K8s providing a CustomResource as value data to the charts
 type Controller struct {
-	ChartDir    string         // path to dir where the Helm chart is located
+	ChartPath   string         // path to dir where the Helm chart is located; for a helm chart archive, path of that archive file
 	Helm        helm.Interface // Helm for talking with helm
 	Namespace   string         // Default namespace to deploy into. If empty it will default to "default"
 	ReleaseName string         // Prefix for the helm release name. Will look like ReleaseName-CR_Name
@@ -51,7 +51,7 @@ func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logge
 	}
 	c := &Controller{
 		Helm:        helm.NewClient(helm.Host(host)),
-		ChartDir:    chartDir,
+		ChartPath:   chartDir,
 		Namespace:   ns,
 		ReleaseName: rn,
 		Wait:        wait,
@@ -122,8 +122,8 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 	// If chart entry is present in CR, then download the chart from repo to local dir
 	// on any error, fallback to local chart already present on the disk
 	if chartRef := GetChartRef(r); chartRef != "" {
-		if chartDir, chartErr := c.GetRemoteChart(chartRef); chartErr == nil {
-			c.ChartDir = chartDir
+		if chartPath, chartErr := c.GetRemoteChart(chartRef); chartErr == nil {
+			c.ChartPath = chartPath
 		} else {
 			return chartErr
 		}
@@ -133,14 +133,14 @@ func (c Controller) installOrUpdate(r *unstructured.Unstructured) error {
 	if c.releaseExists(rlsName) {
 		_, err = c.Helm.UpdateRelease(
 			rlsName,
-			c.ChartDir,
+			c.ChartPath,
 			helm.UpdateValueOverrides(cr),
 			helm.UpgradeWait(c.Wait),
 			helm.UpgradeTimeout(c.WaitTimeout))
 		return err
 	}
 	_, err = c.Helm.InstallRelease(
-		c.ChartDir,
+		c.ChartPath,
 		c.Namespace,
 		helm.ReleaseName(rlsName),
 		helm.ValueOverrides(cr),

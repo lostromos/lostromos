@@ -78,7 +78,7 @@ func getRemoteChart(chartRef string) (string, error) {
 		}
 	}
 
-	return chartCacheDir, nil
+	return chartPath, nil
 }
 
 func getChartDownloader() downloader.ChartDownloader {

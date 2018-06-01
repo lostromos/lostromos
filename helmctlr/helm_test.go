@@ -170,7 +170,7 @@ func lessThan(a float64, b float64) bool {
 func TestNewControllerSetsNS(t *testing.T) {
 	c := helmctlr.NewController("chartDir", "", "release", "127.0.0.3:4321", false, 120, nil)
 	assert.Equal(t, "default", c.Namespace, "Namespace should be set to 'default' when not provided")
-	assert.Equal(t, "chartDir", c.ChartDir)
+	assert.Equal(t, "chartDir", c.ChartPath)
 	assert.Equal(t, "release", c.ReleaseName)
 
 	c = helmctlr.NewController("chartDir", "my_ns", "release", "127.0.0.3:4321", false, 120, nil)
@@ -185,7 +185,7 @@ func TestResourceAddedHappyPath(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...)
 
 	ct := counterTest{
 		events:   1,
@@ -206,7 +206,7 @@ func TestResourceAddedNoPriorReleaseHappyPath(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...)
 
 	ct := counterTest{
 		events:   1,
@@ -230,8 +230,9 @@ func TestResourceRemoteRepoAddedHappyPath(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	chartDir := filepath.Join(os.TempDir(), "test/helloworld", helmctlr.Hash("chart-0.1.0.tgz"))
-	mockHelm.EXPECT().InstallRelease(chartDir, testController.Namespace, installOpts...)
+	chartFilename := "chart-0.1.0.tgz"
+	chartPath := filepath.Join(os.TempDir(), "test/helloworld", helmctlr.Hash(chartFilename), chartFilename)
+	mockHelm.EXPECT().InstallRelease(chartPath, testController.Namespace, installOpts...)
 
 	ct := counterTest{
 		events:     1,
@@ -275,7 +276,7 @@ func TestResourceAddedHappyPathExists(t *testing.T) {
 			}}}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...)
+	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartPath, opts...)
 
 	ct := counterTest{
 		events:   1,
@@ -297,7 +298,7 @@ func TestResourceAddedListErrorStillSuccessful(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, errors.New("Broken"))
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...)
 
 	ct := counterTest{
 		events:   1,
@@ -319,7 +320,7 @@ func TestResourceAddedInstallErrors(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
 
 	ct := counterTest{
 		events:    1,
@@ -345,7 +346,7 @@ func TestResourceAddedUpdateErrors(t *testing.T) {
 			}}}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
+	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartPath, opts...).Return(nil, errors.New("install failed"))
 
 	ct := counterTest{
 		events:    1,
@@ -400,7 +401,7 @@ func TestResourceUpdatedHappyPath(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...)
 
 	ct := counterTest{
 		events: 1,
@@ -427,7 +428,7 @@ func TestResourceUpdatedHappyPathExists(t *testing.T) {
 			}}}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...)
+	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartPath, opts...)
 
 	ct := counterTest{
 		events: 1,
@@ -448,7 +449,7 @@ func TestResourceUpdatedListErrorStillSuccessful(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(nil, errors.New("Broken"))
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...)
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...)
 
 	ct := counterTest{
 		events: 1,
@@ -469,7 +470,7 @@ func TestResourceUpdatedInstallErrors(t *testing.T) {
 	listOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(&services.ListReleasesResponse{}, nil)
 	installOpts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().InstallRelease(testController.ChartDir, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
+	mockHelm.EXPECT().InstallRelease(testController.ChartPath, testController.Namespace, installOpts...).Return(nil, errors.New("install failed"))
 
 	ct := counterTest{
 		events:    1,
@@ -495,7 +496,7 @@ func TestResourceUpdatedUpdateErrors(t *testing.T) {
 			}}}
 	mockHelm.EXPECT().ListReleases(listOpts...).Return(res, nil)
 	opts := []interface{}{gomock.Any(), gomock.Any(), gomock.Any()}
-	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartDir, opts...).Return(nil, errors.New("install failed"))
+	mockHelm.EXPECT().UpdateRelease(testReleaseName, testController.ChartPath, opts...).Return(nil, errors.New("install failed"))
 
 	ct := counterTest{
 		events:    1,
