@@ -86,7 +86,7 @@ func TestGetControllerReturnsHelmController(t *testing.T) {
 	ctlr := getController().(*helmctlr.Controller)
 
 	assert.NotNil(t, ctlr)
-	assert.Equal(t, ctlr.ChartDir, chart)
+	assert.Equal(t, ctlr.ChartPath, chart)
 	assert.Equal(t, ctlr.Namespace, ns)
 	assert.Equal(t, ctlr.ReleaseName, prefix)
 }

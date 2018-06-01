@@ -18,7 +18,8 @@ func Test_getRemoteChart(t *testing.T) {
 		t.FailNow()
 	}
 
-	chartDir := filepath.Join(os.TempDir(), "test/helloworld", helmctlr.Hash("chart-0.1.0.tgz"))
+	chartArchive := "chart-0.1.0.tgz"
+	chartPath := filepath.Join(os.TempDir(), "test/helloworld", helmctlr.Hash(chartArchive), chartArchive)
 	tests := []struct {
 		name    string
 		args    string
@@ -26,15 +27,16 @@ func Test_getRemoteChart(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{"HappyCase", "test/helloworld:0.1.0", func() {}, chartDir, false},
-		{"ChartNoVersion", "test/helloworld:", func() {}, chartDir, false},
-		{"DirCreationFailed", "test/helloworld:0.1.0", func() { createSymlinkReplacingDir(chartDir) }, "", true},
-		{"DownloadFailed", "test/helloworld:0.1.0", func() { readOnlyChartDir(chartDir) }, "", true},
+		{"HappyCase", "test/helloworld:0.1.0", func() {}, chartPath, false},
+		{"ChartNoVersion", "test/helloworld:", func() {}, chartPath, false},
+		{"DirCreationFailed", "test/helloworld:0.1.0", func() { createSymlinkReplacingDir(chartPath) }, "", true},
+		{"DownloadFailed", "test/helloworld:0.1.0", func() { readOnlyChartDir(chartPath) }, "", true},
 		{"ChartNoName", ":1.2rev34", func() {}, "", true},
 		{"InvalidChart", "test/test_chart:1.2rev34", func() {}, "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			reset(filepath.Dir(chartPath))
 			tt.f()
 
 			got, err := testController.GetRemoteChart(tt.args)
@@ -46,17 +48,19 @@ func Test_getRemoteChart(t *testing.T) {
 				t.Errorf("getRemoteChart() = %v, want %v", got, tt.want)
 			}
 
-			reset(chartDir)
+			reset(filepath.Dir(chartPath))
 		})
 	}
 }
 
-func readOnlyChartDir(chartDir string) {
+func readOnlyChartDir(chartPath string) {
+	chartDir := filepath.Dir(chartPath)
 	os.RemoveAll(chartDir)
 	os.Mkdir(chartDir, 0400)
 }
 
-func createSymlinkReplacingDir(chartDir string) {
+func createSymlinkReplacingDir(chartPath string) {
+	chartDir := filepath.Dir(chartPath)
 	os.RemoveAll(chartDir)
 	parent, _ := path.Split(chartDir)
 	os.Chmod(parent, 0400)
