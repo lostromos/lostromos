@@ -52,6 +52,8 @@ func NewController(tmplDir string, kubeCfg string, logger *zap.SugaredLogger) *C
 // the template files and apply them to Kubernetes
 func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
+	metrics.EventQueue.Inc()
+	defer metrics.EventQueue.Dec()
 	c.logger.Infow("resource added", "resource", r.GetName())
 	out, err := c.apply(r)
 	if err != nil {
@@ -68,6 +70,8 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 // resync and will generate the template files and apply them to Kubernetes
 func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
+	metrics.EventQueue.Inc()
+	defer metrics.EventQueue.Dec()
 	c.logger.Infow("resource updated", "resource", newR.GetName())
 	out, err := c.apply(newR)
 	if err != nil {
@@ -83,6 +87,8 @@ func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 // the template files and delete them from Kubernetes
 func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
+	metrics.EventQueue.Inc()
+	defer metrics.EventQueue.Dec()
 	c.logger.Infow("resource deleted", "resource", r.GetName())
 	out, err := c.delete(r)
 	if err != nil {

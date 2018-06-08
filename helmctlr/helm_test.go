@@ -94,6 +94,7 @@ type counterTest struct {
 	update        int
 	updateErr     int
 	events        int
+	eventQueue	  int
 	releases      int
 	remoteRepo    int
 	remoteRepoErr int
@@ -145,6 +146,7 @@ func assertMetrics(t *testing.T, c counterTest, f func(), tsMap map[string]func(
 	assert.Equal(t, float64(c.updateErr), uea-ueb, "change in releases_update_error_total incorrect")
 	assert.Equal(t, float64(c.events), ea-eb, "change in releases_events_total incorrect")
 	assert.Equal(t, float64(c.releases), ra-rb, "change in releases_total incorrect")
+	assert.Equal(t, float64(c.eventQueue), 0.0, "change in releases_event_queue incorrect")
 	assert.Equal(t, float64(c.remoteRepo), rra-rrb, "change in remote_repo_total incorrect")
 	assert.Equal(t, float64(c.remoteRepoErr), rrea-rreb, "change in remote_repo_error_total incorrect")
 
