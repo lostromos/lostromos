@@ -94,7 +94,7 @@ type counterTest struct {
 	update        int
 	updateErr     int
 	events        int
-	eventQueue	  int
+	eventQueue    int
 	releases      int
 	remoteRepo    int
 	remoteRepoErr int
