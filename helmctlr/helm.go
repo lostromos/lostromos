@@ -65,6 +65,8 @@ func NewController(chartDir, ns, rn, host string, wait bool, waitto int64, logge
 // help install for the given charts and CR
 func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
+	metrics.EventQueue.Inc()
+	defer metrics.EventQueue.Dec()
 	c.logger.Infow("resource added", "resource", r.GetName())
 	if err := c.installOrUpdate(r); err != nil {
 		metrics.CreateFailures.Inc()
@@ -76,11 +78,13 @@ func (c Controller) ResourceAdded(r *unstructured.Unstructured) {
 	metrics.LastSuccessfulCreate.Set(float64(time.Now().UTC().UnixNano()) / 1000000000)
 }
 
-// ResourceDeleted is called when a custom resource is created and will use
+// ResourceDeleted is called when a custom resource is removed and will use
 // Helm to delete the release. The release is also purged in case in the future
 // another CR with the same name is created.
 func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
+	metrics.EventQueue.Inc()
+	defer metrics.EventQueue.Dec()
 	c.logger.Infow("resource deleted", "resource", r.GetName())
 	err := c.delete(r)
 	if err != nil {
@@ -97,6 +101,8 @@ func (c Controller) ResourceDeleted(r *unstructured.Unstructured) {
 // resync and will kick off a helm update for the corresponding release
 func (c Controller) ResourceUpdated(oldR, newR *unstructured.Unstructured) {
 	metrics.TotalEvents.Inc()
+	metrics.EventQueue.Inc()
+	defer metrics.EventQueue.Dec()
 	c.logger.Infow("resource updated", "resource", newR.GetName())
 	if err := c.installOrUpdate(newR); err != nil {
 		metrics.UpdateFailures.Inc()

@@ -110,6 +110,13 @@ var (
 		Name:      "events_total",
 		Namespace: "releases",
 	})
+
+	// EventQueue is a metric for indicating the number of CR requests in the queue to be processed
+	EventQueue = prometheus.NewGauge(prometheus.GaugeOpts{
+		Help:      "The number of current events to be processed",
+		Name:      "events_in_queue",
+		Namespace: "releases",
+	})
 )
 
 func init() {
@@ -126,4 +133,5 @@ func init() {
 	prometheus.MustRegister(UpdateFailures)
 	prometheus.MustRegister(LastSuccessfulUpdate)
 	prometheus.MustRegister(TotalEvents)
+	prometheus.MustRegister(EventQueue)
 }
