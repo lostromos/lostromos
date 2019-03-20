@@ -67,7 +67,7 @@ func check(out io.Writer) error {
 		return errors.New("ERROR: your CR file is not a file")
 	}
 
-	yamlFile, err := ioutil.ReadFile(crFile)
+	yamlFile, err := ioutil.ReadFile(crFile) // nolint: gosec
 	if err != nil {
 		return err
 	}
