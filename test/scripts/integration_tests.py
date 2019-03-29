@@ -38,7 +38,7 @@ _NEMO_UPDATE_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_nemo_
 _REMOTE_REPO_CUSTOM_RESOURCE_FILE = os.path.join(_TEST_DATA_DIRECTORY, "cr_remote_repo.yml")
 
 
-class Kubectl(object):
+class Kubectl():
     """
     Class used to interact with kubectl and return data.
     """
@@ -77,7 +77,7 @@ class Kubectl(object):
         self.__run_command("delete", filepath, raise_error)
 
 
-class Helm(object):
+class Helm():
     """
     Class used to interact with helm and return data
     """
