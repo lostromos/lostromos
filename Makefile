@@ -13,7 +13,7 @@
 # limitations under the License.
 
 APP           := lostromos
-PKG           := github.com/wpengine/lostromos
+PKG           := github.com/lostromos/lostromos
 
 BUILD_NUMBER  := dev
 VERSION       := $(shell git describe --tags --always --dirty)

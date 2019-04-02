@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/wpengine/lostromos/helmctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/lostromos/lostromos/helmctlr"
 )
 
 func Test_getRemoteChart(t *testing.T) {

@@ -1,22 +1,20 @@
 package helmctlr
 
 import (
-	"strings"
-
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"errors"
-
-	"encoding/base64"
-
-	"github.com/wpengine/lostromos/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/getter"
 	"k8s.io/helm/pkg/helm/environment"
 	"k8s.io/helm/pkg/helm/helmpath"
+
+	"github.com/lostromos/lostromos/metrics"
 )
 
 // GetChartRef reads the chart entry from CR spec and returns chart entry or empty string.

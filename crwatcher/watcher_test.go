@@ -21,10 +21,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/wpengine/lostromos/printctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
+
+	"github.com/lostromos/lostromos/printctlr"
 )
 
 type logResult struct {

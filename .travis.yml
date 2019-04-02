@@ -53,6 +53,6 @@ deploy:
   file: out/lostromos-*
   skip_cleanup: true
   on:
-    repo: wpengine/lostromos
+    repo: lostromos/lostromos
     tags: true
     condition: $TRAVIS_GO_VERSION =~ ^1\.9\.[0-9]+$

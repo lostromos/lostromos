@@ -19,11 +19,12 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/wpengine/lostromos/metrics"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/helm/pkg/helm"
 	"k8s.io/helm/pkg/proto/hapi/release"
+
+	"github.com/lostromos/lostromos/metrics"
 )
 
 var defaultNS = "default"

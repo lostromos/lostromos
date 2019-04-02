@@ -16,7 +16,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/wpengine/lostromos/version"
+
+	"github.com/lostromos/lostromos/version"
 )
 
 func init() {

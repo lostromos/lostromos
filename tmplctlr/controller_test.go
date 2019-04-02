@@ -22,14 +22,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/wpengine/lostromos/metrics"
-	"github.com/wpengine/lostromos/tmplctlr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"time"
+
+	"github.com/lostromos/lostromos/metrics"
+	"github.com/lostromos/lostromos/tmplctlr"
 )
 
 var (

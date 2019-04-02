@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/wpengine/lostromos/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/lostromos/lostromos/metrics"
 )
 
 // Controller provides a crwatcher.ResourceController that prints the events out
