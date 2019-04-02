@@ -94,7 +94,7 @@ will watch for add/update/delete
   * `name` (Required) The plural name of the Custom Resource Definition (CRD)
   you want monitored (ex: users)
   * `group` (Required) The group of the CRD you want monitored
-  (ex: stable.wpengine.io)
+  (ex: stable.nicolerenee.io)
   * `version` (Required) The version of the CRD you want monitored
   * `namespace` The namespace of the CRD you want monitored
   * `filter` Filter to specify if Lostromos will act on a resource

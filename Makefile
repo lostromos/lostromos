@@ -24,7 +24,7 @@ LD_FLAGS      := -s -w -X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Gi
 MARKDOWN_LINTER := wpengine/mdl
 PYTHON_LINTER := wpengine/pylint
 
-OWNER=wpengine
+OWNER=lostromos
 IMAGE_NAME=lostromos
 QNAME=$(OWNER)/$(IMAGE_NAME)
 

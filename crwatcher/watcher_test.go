@@ -110,7 +110,7 @@ func TestSetupHandlerAddFuncUsesFilter(t *testing.T) {
 	mockRC := NewMockResourceController(mockCtrl)
 	cw := &CRWatcher{
 		Config: &Config{
-			Filter: "com.wpengine.lostromos.filter",
+			Filter: "io.nicolerenee.lostromos.filter",
 		},
 	}
 	r1 := &unstructured.Unstructured{
@@ -125,7 +125,7 @@ func TestSetupHandlerAddFuncUsesFilter(t *testing.T) {
 			"metadata": map[string]interface{}{
 				"name": "Thing2",
 				"annotations": map[string]interface{}{
-					"com.wpengine.lostromos.filter": "true",
+					"io.nicolerenee.lostromos.filter": "true",
 				},
 			},
 		},
@@ -170,7 +170,7 @@ func TestSetupHandlerDeleteFuncUsesFilter(t *testing.T) {
 	mockRC := NewMockResourceController(mockCtrl)
 	cw := &CRWatcher{
 		Config: &Config{
-			Filter: "com.wpengine.lostromos.filter",
+			Filter: "io.nicolerenee.lostromos.filter",
 		},
 	}
 	r1 := &unstructured.Unstructured{
@@ -185,7 +185,7 @@ func TestSetupHandlerDeleteFuncUsesFilter(t *testing.T) {
 			"metadata": map[string]interface{}{
 				"name": "Thing2",
 				"annotations": map[string]interface{}{
-					"com.wpengine.lostromos.filter": "true",
+					"io.nicolerenee.lostromos.filter": "true",
 				},
 			},
 		},
@@ -237,7 +237,7 @@ func TestSetupHandlerUpdateFuncUsesFilter(t *testing.T) {
 	mockRC := NewMockResourceController(mockCtrl)
 	cw := &CRWatcher{
 		Config: &Config{
-			Filter: "com.wpengine.lostromos.filter",
+			Filter: "io.nicolerenee.lostromos.filter",
 		},
 	}
 	r1 := &unstructured.Unstructured{
@@ -252,7 +252,7 @@ func TestSetupHandlerUpdateFuncUsesFilter(t *testing.T) {
 			"metadata": map[string]interface{}{
 				"name": "Thing1",
 				"annotations": map[string]interface{}{
-					"com.wpengine.lostromos.filter": "true",
+					"io.nicolerenee.lostromos.filter": "true",
 				},
 			},
 		},
@@ -269,7 +269,7 @@ func TestSetupHandlerUpdateFuncUsesFilter(t *testing.T) {
 			"metadata": map[string]interface{}{
 				"name": "Thing2",
 				"annotations": map[string]interface{}{
-					"com.wpengine.lostromos.filter": "true",
+					"io.nicolerenee.lostromos.filter": "true",
 				},
 			},
 		},
