@@ -8,8 +8,8 @@ RUN curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-releas
 RUN chmod +x /usr/bin/kubectl
 
 # Copy lostromos into the build environment.
-WORKDIR /go/src/github.com/wpengine/lostromos
-COPY .  /go/src/github.com/wpengine/lostromos
+WORKDIR /go/src/github.com/lostromos/lostromos
+COPY .  /go/src/github.com/lostromos/lostromos
 
 # Install any compile-time golang dependencies.
 RUN dep ensure
@@ -22,7 +22,7 @@ RUN adduser -D lostromos
 USER lostromos
 
 # Add our compiled binary and kubectl
-COPY --from=build-env /go/src/github.com/wpengine/lostromos/out/lostromos-linux-amd64 /lostromos
+COPY --from=build-env /go/src/github.com/lostromos/lostromos/out/lostromos-linux-amd64 /lostromos
 COPY --from=build-env /usr/bin/kubectl /usr/bin/kubectl
 
 ENTRYPOINT ["/lostromos"]

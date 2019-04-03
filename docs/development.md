@@ -35,7 +35,7 @@ fail.
 ### Code Coverage
 
 Code Coverage is expected to be at least 80%, with a stretch goal of 100%. We
-track our code coverage via [codecov.io](https://codecov.io/gh/wpengine/lostromos).
+track our code coverage via [codecov.io](https://codecov.io/gh/lostromos/lostromos).
 To generate a coverage report locally, you can run `make coverage`.
 
 ### Integration Testing
@@ -78,7 +78,7 @@ master branch before deploying a new image.
 
 Travis uses a yml system of running tasks. Check out the [.travis.yml](../.travis.yml)
 file to see more detailed information about what operations we run. The travis
-job is hosted [here](https://travis-ci.org/wpengine/lostromos).
+job is hosted [here](https://travis-ci.org/lostromos/lostromos).
 
 ### Slow Builds
 

@@ -23,8 +23,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
-	"github.com/wpengine/lostromos/tmpl"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/lostromos/lostromos/tmpl"
 )
 
 var (

@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
-	"github.com/wpengine/lostromos/helmctlr"
-	"github.com/wpengine/lostromos/tmplctlr"
-
 	"github.com/stretchr/testify/assert"
 	restclient "k8s.io/client-go/rest"
+
+	"github.com/lostromos/lostromos/helmctlr"
+	"github.com/lostromos/lostromos/tmplctlr"
 )
 
 func TestGetKubeClientDefaultsToConfigFileWhenNotInCluster(t *testing.T) {

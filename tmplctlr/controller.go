@@ -20,10 +20,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/wpengine/lostromos/metrics"
-	"github.com/wpengine/lostromos/tmpl"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/lostromos/lostromos/metrics"
+	"github.com/lostromos/lostromos/tmpl"
 )
 
 // Controller implements a valid crwatcher.ResourceController that will manage

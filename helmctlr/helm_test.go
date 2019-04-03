@@ -16,20 +16,20 @@ package helmctlr_test
 
 import (
 	"errors"
-	"testing"
-	"time"
-
 	"os"
 	"path/filepath"
+	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/wpengine/lostromos/helmctlr"
-	"github.com/wpengine/lostromos/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/helm/pkg/proto/hapi/release"
 	"k8s.io/helm/pkg/proto/hapi/services"
+
+	"github.com/lostromos/lostromos/helmctlr"
+	"github.com/lostromos/lostromos/metrics"
 )
 
 var (

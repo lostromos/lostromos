@@ -1,8 +1,8 @@
 ![Lostrómos logo](docs/images/logo.png)
 
-[![Build Status](https://travis-ci.org/wpengine/lostromos.svg?branch=master)](https://travis-ci.org/wpengine/lostromos)
-[![codecov](https://codecov.io/gh/wpengine/lostromos/branch/master/graph/badge.svg)](https://codecov.io/gh/wpengine/lostromos)
-[![Go Report Card](https://goreportcard.com/badge/github.com/wpengine/lostromos)](https://goreportcard.com/report/github.com/wpengine/lostromos)
+[![Build Status](https://travis-ci.org/lostromos/lostromos.svg?branch=master)](https://travis-ci.org/lostromos/lostromos)
+[![codecov](https://codecov.io/gh/lostromos/lostromos/branch/master/graph/badge.svg)](https://codecov.io/gh/lostromos/lostromos)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lostromos/lostromos)](https://goreportcard.com/report/github.com/lostromos/lostromos)
 
 # Lostrómos
 

@@ -26,7 +26,7 @@
   name = "k8s.io/helm"
   version = "2.9.1"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/kubernetes"
   branch = "release-1.9"
 

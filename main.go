@@ -15,7 +15,7 @@
 package main
 
 import (
-	"github.com/wpengine/lostromos/cmd"
+	"github.com/lostromos/lostromos/cmd"
 )
 
 func main() {
