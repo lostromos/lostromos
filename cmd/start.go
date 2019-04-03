@@ -51,7 +51,7 @@ func init() {
 	LostromosCmd.AddCommand(startCmd)
 
 	startCmd.Flags().String("crd-name", "", "the plural name of the CRD you want monitored (ex: users)")
-	startCmd.Flags().String("crd-group", "", "the group of the CRD you want monitored (ex: stable.wpengine.io)")
+	startCmd.Flags().String("crd-group", "", "the group of the CRD you want monitored (ex: stable.nicolerenee.io)")
 	startCmd.Flags().String("crd-version", "v1", "the version of the CRD you want monitored")
 	startCmd.Flags().String("crd-namespace", metav1.NamespaceNone, "(optional) the namespace of the CRD you want monitored, only needed for namespaced CRDs (ex: default)")
 	startCmd.Flags().String("crd-filter", "", "(optional) Annotation key to specify that the custom resource has opted in to watching by Lostromos")

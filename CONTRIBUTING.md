@@ -4,11 +4,11 @@
 
 ## <a name="bugs"></a>Report a Bug
 
-To report an issue or suggest an improvement please open an [issue](https://github.com/wpengine/lostromos/issues).
+To report an issue or suggest an improvement please open an [issue](https://github.com/lostromos/lostromos/issues).
 
 If you are reporting a security issue, do not create an issue or file a pull
 request on GitHub. Instead, disclose the issue responsibly by sending an email
-to security@wpengine.com.
+to the maintainer.
 
 ## Pull requests are always welcome
 
