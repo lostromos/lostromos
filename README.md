@@ -70,11 +70,11 @@ creating a single CR.
 
 *Eliminate maintenance of application operational knowledge for deployments*
 
-WP Engine uses Lostrómos in conjunction with another tool to customize VM
-deployments into GCE. Each VM instance offloads some of its workload to a
-separate Kubernetes application. As we create new VMs in GCE, this other tool
-monitors the Google API for these changes and creates a CR as they happen.
-Lostrómos watches for changes to this CR endpoint and creates a Helm release
-by combining information from the new CR and a predefined template. This allows
-us to deconstruct some of the work for our deployment into GCE and reduce
+WP Engine previously used Lostrómos in conjunction with another tool to customize VM
+deployments into GCE. Each VM instance offloaded some of its workload to a
+separate Kubernetes application. As new VMs were created in GCE, this other tool
+monitored the Google API for these changes and created a CR as they happened.
+Lostrómos watched for changes to this CR endpoint and created a Helm release
+by combining information from the new CR and a predefined template. This allowed
+WP Engine to deconstruct some of the work for deployment into GCE and reduce
 maintenance work around sharing the data between applications.
