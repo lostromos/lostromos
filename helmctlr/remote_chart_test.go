@@ -24,21 +24,21 @@ func Test_getRemoteChart(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    string
-		f       func()
+		f       func(t *testing.T)
 		want    string
 		wantErr bool
 	}{
-		{"HappyCase", "test/helloworld:0.1.0", func() {}, chartPath, false},
-		{"ChartNoVersion", "test/helloworld:", func() {}, chartPath, false},
-		{"DirCreationFailed", "test/helloworld:0.1.0", func() { createSymlinkReplacingDir(chartPath) }, "", true},
-		{"DownloadFailed", "test/helloworld:0.1.0", func() { readOnlyChartDir(chartPath) }, "", true},
-		{"ChartNoName", ":1.2rev34", func() {}, "", true},
-		{"InvalidChart", "test/test_chart:1.2rev34", func() {}, "", true},
+		{"HappyCase", "test/helloworld:0.1.0", func(t *testing.T) {}, chartPath, false},
+		{"ChartNoVersion", "test/helloworld:", func(t *testing.T) {}, chartPath, false},
+		{"DirCreationFailed", "test/helloworld:0.1.0", func(t *testing.T) { createSymlinkReplacingDir(t, chartPath) }, "", true},
+		{"DownloadFailed", "test/helloworld:0.1.0", func(t *testing.T) { readOnlyChartDir(t, chartPath) }, "", true},
+		{"ChartNoName", ":1.2rev34", func(t *testing.T) {}, "", true},
+		{"InvalidChart", "test/test_chart:1.2rev34", func(t *testing.T) {}, "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reset(filepath.Dir(chartPath))
-			tt.f()
+			reset(t, filepath.Dir(chartPath))
+			tt.f(t)
 
 			got, err := testController.GetRemoteChart(tt.args)
 			if (err != nil) != tt.wantErr {
@@ -49,28 +49,40 @@ func Test_getRemoteChart(t *testing.T) {
 				t.Errorf("getRemoteChart() = %v, want %v", got, tt.want)
 			}
 
-			reset(filepath.Dir(chartPath))
+			reset(t, filepath.Dir(chartPath))
 		})
 	}
 }
 
-func readOnlyChartDir(chartPath string) {
+func readOnlyChartDir(t *testing.T, chartPath string) {
 	chartDir := filepath.Dir(chartPath)
-	os.RemoveAll(chartDir)
-	os.Mkdir(chartDir, 0400)
+	if err := os.RemoveAll(chartDir); err != nil {
+		t.Logf("readOnlyChartDir() error = %v", err)
+	}
+	if err := os.Mkdir(chartDir, 0400); err != nil {
+		t.Logf("readOnlyChartDir() error = %v", err)
+	}
 }
 
-func createSymlinkReplacingDir(chartPath string) {
+func createSymlinkReplacingDir(t *testing.T, chartPath string) {
 	chartDir := filepath.Dir(chartPath)
-	os.RemoveAll(chartDir)
+	if err := os.RemoveAll(chartDir); err != nil {
+		t.Logf("createSymlinkReplacingDir() error = %v", err)
+	}
 	parent, _ := path.Split(chartDir)
-	os.Chmod(parent, 0400)
+	if err := os.Chmod(parent, 0400); err != nil {
+		t.Logf("createSymlinkReplacingDir() error = %v", err)
+	}
 }
 
-func reset(chartDir string) {
-	os.RemoveAll(chartDir)
+func reset(t *testing.T, chartDir string) {
+	if err := os.RemoveAll(chartDir); err != nil {
+		t.Logf("reset() error = %v", err)
+	}
 	parent, _ := path.Split(chartDir)
-	os.Chmod(parent, 0700)
+	if err := os.Chmod(parent, 0700); err != nil {
+		t.Logf("reset() error = %v", err)
+	}
 }
 
 func Test_getChartRef(t *testing.T) {
