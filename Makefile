@@ -57,7 +57,7 @@ lint: golint lint-python lint-markdown
 
 golint: | vendor
 	@echo Linting Go files...
-	@CGO_ENABLED=0 gometalinter --vendor --deadline=240s --enable=gofmt --disable=gotype ./...
+	@CGO_ENABLED=0 golangci-lint run --deadline=5m --enable goimports ./...
 
 lint-markdown:
 	@echo Linting Markdown files...
@@ -69,8 +69,7 @@ lint-python:
 
 install-go-deps:
 	go get -u github.com/golang/dep/cmd/dep
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install
+	go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
 
 install-python-deps:
 	pip3 install -r requirements.txt
